@@ -14,6 +14,7 @@ is needed beyond committing the file.
 import json
 import os
 import re
+import sys
 
 import common
 
@@ -166,6 +167,13 @@ TEMPLATE = r"""<!doctype html>
   .race-legend .swatch.proj{ opacity:0.32; }
   .meta{ font-size:0.8rem; color:var(--ink-muted); margin-top:1rem; line-height:1.6; }
   footer{ margin-top:2.5rem; font-size:0.8rem; color:var(--ink-muted); }
+
+  .race-controls{ display:flex; align-items:center; gap:0.8rem; margin-top:1.1rem; padding-top:1rem; border-top:1px solid var(--border); }
+  .play-btn{ width:32px; height:32px; border-radius:50%; border:1px solid var(--border); background:var(--surface-sunken); color:var(--ink); cursor:pointer; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+  .play-btn:hover{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  .scrub{ flex:1 1 auto; appearance:none; height:4px; border-radius:2px; background:var(--surface-sunken); outline:none; cursor:pointer; }
+  .scrub::-webkit-slider-thumb{ appearance:none; width:13px; height:13px; border-radius:50%; background:var(--accent); cursor:pointer; border:2px solid var(--surface-raised); }
+  .scrub::-moz-range-thumb{ width:13px; height:13px; border-radius:50%; background:var(--accent); cursor:pointer; border:2px solid var(--surface-raised); }
 </style>
 </head>
 <body>
@@ -178,12 +186,19 @@ TEMPLATE = r"""<!doctype html>
       <span class="live-badge"><span class="dot"></span>Updated __LAST_UPDATED__ UTC</span>
     </div>
     <div class="race-track" id="raceTrack"></div>
+    <div class="race-controls">
+      <button class="play-btn" id="playBtn" aria-label="Play">
+        <svg id="playIcon" width="12" height="12" viewBox="0 0 14 14" fill="currentColor"><path d="M2 1.5 12 7 2 12.5Z"/></svg>
+        <svg id="pauseIcon" width="12" height="12" viewBox="0 0 14 14" fill="currentColor" style="display:none"><path d="M2.5 1.5h3v11h-3ZM8.5 1.5h3v11h-3Z"/></svg>
+      </button>
+      <input type="range" class="scrub" id="scrub" min="0" max="0" value="0" step="1">
+    </div>
     <div class="race-legend">
       <span class="item"><span class="swatch"></span>Actual points</span>
       <span class="item"><span class="swatch proj"></span>Live-projected final</span>
     </div>
   </div>
-  <p class="meta">Rebuilt automatically from Sleeper API snapshots polled every few minutes during game windows. Reload for the latest — this page doesn't auto-refresh itself.</p>
+  <p class="meta">Rebuilt automatically from Sleeper API snapshots polled every few minutes during game windows. Opens showing the latest snapshot — drag the scrubber back to replay how the day got there. Reload for the newest data; this page doesn't auto-refresh itself.</p>
   <footer>Sunday Scoreboard &middot; league <span class="mono">__LEAGUE_ID__</span></footer>
 </div>
 <script>
@@ -264,7 +279,43 @@ TEMPLATE = r"""<!doctype html>
     document.getElementById("clockLabel").textContent = d.toLocaleString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit", month: "short", day: "numeric" }) + " ET";
   }
 
-  render(frames.length - 1); // show the latest snapshot by default
+  var scrub = document.getElementById("scrub");
+  scrub.max = frames.length - 1;
+
+  var current = frames.length - 1;
+  var playing = false;
+  var timer = null;
+
+  function setPlaying(p){
+    playing = p;
+    document.getElementById("playIcon").style.display = p ? "none" : "";
+    document.getElementById("pauseIcon").style.display = p ? "" : "none";
+  }
+
+  function tick(){
+    if (!playing) return;
+    current++;
+    if (current >= frames.length){ current = frames.length - 1; setPlaying(false); clearInterval(timer); }
+    scrub.value = current;
+    render(current);
+  }
+
+  document.getElementById("playBtn").addEventListener("click", function(){
+    if (current >= frames.length - 1){ current = 0; scrub.value = 0; render(0); }
+    setPlaying(!playing);
+    clearInterval(timer);
+    if (playing) timer = setInterval(tick, 200);
+  });
+
+  scrub.addEventListener("input", function(){
+    setPlaying(false);
+    clearInterval(timer);
+    current = parseInt(scrub.value, 10);
+    render(current);
+  });
+
+  scrub.value = current;
+  render(current); // show the latest snapshot by default; drag the scrubber to replay the day
 })();
 </script>
 </body>
@@ -294,7 +345,12 @@ __ITEMS__
 """
 
 if __name__ == "__main__":
-    state = common.get_state()
-    week = state.get("display_week") or state["week"]
+    # Optional explicit week, e.g. `python scripts/render.py 0` to render the
+    # dummy-data test week regardless of what's actually live right now.
+    if len(sys.argv) > 1:
+        week = int(sys.argv[1])
+    else:
+        state = common.get_state()
+        week = state.get("display_week") or state["week"]
     render_week(week)
     render_index()

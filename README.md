@@ -49,18 +49,33 @@ workflow's built-in `GITHUB_TOKEN` is enough to commit its own results.
 
 ## Testing before Week 1
 
-Two ways to check it's wired up correctly without waiting for a real game:
+Three ways to check it's wired up correctly without waiting for a real game,
+from quickest to most realistic:
 
 - **Logic-only, no network:** `pip install -r requirements.txt && python
   selftest.py` runs the actual scoring and rendering code against fake data
   and asserts the output is correct. Safe to run anytime — it works in a
   throwaway temp directory and never touches your real `data/` or `docs/`.
 
-- **Real network, real repo:** once pushed, go to your repo's Actions tab →
-  "Sunday Scoreboard" → "Run workflow" to fire it manually instead of
-  waiting for the cron schedule. Outside the season this will log "not
-  in-season — skipping" and exit cleanly, which just confirms the plumbing
-  works; you won't see real bars move until your league's actually live.
+- **See the real page, with dummy data, entirely from the browser:** repo →
+  Actions tab → "Sunday Scoreboard" → "Run workflow" → check the "Seed fake
+  week-0 data" box → Run workflow. This fetches your real 14 team names from
+  Sleeper, fabricates a full fake game day of scoring for them (using
+  `scripts/seed_dummy_data.py`), and publishes it as **week 0** — a week
+  number that can never collide with a real week, and that will always sort
+  to the bottom of the index once real weeks exist. Give Pages a minute,
+  then visit `https://bhu248.github.io/<your-repo-name>/week0.html` to see
+  the actual time-lapse: drag the scrubber to replay the fake day, or hit
+  play. Re-running it regenerates week 0 from scratch (same fixed random
+  seed, so it's the same fake day each time) — nothing about it ever touches
+  real week data. Delete `data/week0.jsonl` and `docs/week0.html` whenever
+  you're done with it; nothing references them automatically.
+
+- **Real network, real repo, no fake data:** the same "Run workflow" button
+  with the seed box left unchecked runs the real poller instead. Outside the
+  season this will log "not in-season — skipping" and exit cleanly, which
+  just confirms the plumbing works; you won't see real bars move until your
+  league's actually live.
 
 The Thursday Night opener (Sept 10) is the natural first real test — one
 game, low stakes, easy to watch and compare against the Sleeper app directly
@@ -108,9 +123,10 @@ continuous motion once it's animated.
 ## Files
 
 ```
-scripts/common.py    shared Sleeper API + scoring helpers
-scripts/poll.py       one poll → one snapshot
-scripts/render.py     snapshots → the published HTML pages
+scripts/common.py           shared Sleeper API + scoring helpers
+scripts/poll.py              one poll → one snapshot
+scripts/render.py            snapshots → the published HTML pages
+scripts/seed_dummy_data.py   fabricates a fake "week 0" for testing
 .github/workflows/scoreboard.yml   the schedule that runs the above
 selftest.py            offline sanity check, safe to run anytime
 data/                  one .jsonl file per week (created automatically)

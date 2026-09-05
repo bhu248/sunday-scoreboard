@@ -9,7 +9,12 @@ name: Sunday Scoreboard
 # November clock change), which is why each real window has two lines and
 # the windows run a little wider than strictly necessary at the edges.
 on:
-  workflow_dispatch: {} # lets you trigger a manual run from the Actions tab, for testing
+  workflow_dispatch:
+    inputs:
+      seed_dummy:
+        description: "Seed fake week-0 data (using your real team names) instead of polling live scores — safe to run anytime, for testing"
+        type: boolean
+        default: false
   schedule:
     - cron: "*/5 17-23 * * 0"  # Sunday daytime + evening (main slate)
     - cron: "*/5 0-4 * * 1"    # Sunday Night Football, after midnight UTC
@@ -38,9 +43,15 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - run: python scripts/poll.py
-
-      - run: python scripts/render.py
+      - name: Poll live scores, or seed dummy data for a test run
+        run: |
+          if [ "${{ github.event.inputs.seed_dummy }}" = "true" ]; then
+            python scripts/seed_dummy_data.py
+            python scripts/render.py 0
+          else
+            python scripts/poll.py
+            python scripts/render.py
+          fi
 
       - name: Commit and push if anything changed
         run: |

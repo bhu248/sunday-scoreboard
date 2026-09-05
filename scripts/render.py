@@ -198,7 +198,7 @@ TEMPLATE = r"""<!doctype html>
       <span class="item"><span class="swatch proj"></span>Live-projected final</span>
     </div>
   </div>
-  <p class="meta">Rebuilt automatically from Sleeper API snapshots polled every few minutes during game windows. Opens showing the latest snapshot — drag the scrubber back to replay how the day got there. Reload for the newest data; this page doesn't auto-refresh itself.</p>
+  <p class="meta">Teams are ranked by live-projected final (the pale bar), not actual points banked so far — a team with a big head start from players already done can still sit below one with more real upside left on the field. Rebuilt automatically from Sleeper API snapshots polled every few minutes during game windows. Opens showing the latest snapshot — drag the scrubber back to replay how the day got there. Reload for the newest data; this page doesn't auto-refresh itself.</p>
   <footer>Sunday Scoreboard &middot; league <span class="mono">__LEAGUE_ID__</span></footer>
 </div>
 <script>
@@ -250,7 +250,10 @@ TEMPLATE = r"""<!doctype html>
     var byId = {};
     f.teams.forEach(function(t){ byId[t.id] = t; });
 
-    var order = f.teams.slice().sort(function(a,b){ return b.actual - a.actual; }).map(function(t){ return t.id; });
+    // Ranked by live-projected final, not actual-so-far — a team that's
+    // banked a big score from players who are already done can still sit
+    // below a team with less banked but more real upside left on the field.
+    var order = f.teams.slice().sort(function(a,b){ return b.projected - a.projected; }).map(function(t){ return t.id; });
     var rank = {};
     order.forEach(function(id,pos){ rank[id] = pos; });
 

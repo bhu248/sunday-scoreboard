@@ -77,17 +77,18 @@ from quickest to most realistic:
   just confirms the plumbing works; you won't see real bars move until your
   league's actually live.
 
-The Thursday Night opener (Sept 10) is the natural first real test — one
-game, low stakes, easy to watch and compare against the Sleeper app directly
-before trusting it with a full Sunday and an actual prize on the line.
+The Wednesday opener (Sept 9 — this year's season kickoff game was moved off
+its usual Thursday slot) is the natural first real test: one game, low
+stakes, easy to watch and compare against the Sleeper app directly before
+trusting it with a full Sunday and an actual prize on the line.
 
 ## How it runs
 
-`.github/workflows/scoreboard.yml` fires on a cron schedule covering Thursday
-night, all day Sunday, and Monday night (see the comments in that file for
-the exact UTC windows — they're written a little wider than strictly
-necessary so the schedule doesn't need touching when clocks change in
-November). Each firing:
+`.github/workflows/scoreboard.yml` fires on a cron schedule covering
+Wednesday night, Thursday night, all day Sunday, and Monday night (see the
+comments in that file for the exact UTC windows — they're written a little
+wider than strictly necessary so the schedule doesn't need touching when
+clocks change in November). Each firing:
 
 1. `scripts/poll.py` — fetches this week's matchups + projections from
    Sleeper, scores everything through your league's own `scoring_settings`,

@@ -1,0 +1,62 @@
+name: Sunday Scoreboard
+
+# Polls the Sleeper API every 5 minutes during NFL game windows and
+# republishes docs/week<N>.html (served by GitHub Pages) with the latest
+# scores. No secrets required — Sleeper's API is public and read-only, and
+# this workflow's own GITHUB_TOKEN is enough to commit the results back.
+#
+# Cron is UTC and written to cover both EDT and EST (the season crosses the
+# November clock change), which is why each real window has two lines and
+# the windows run a little wider than strictly necessary at the edges.
+on:
+  workflow_dispatch: {} # lets you trigger a manual run from the Actions tab, for testing
+  schedule:
+    - cron: "*/5 17-23 * * 0"  # Sunday daytime + evening (main slate)
+    - cron: "*/5 0-4 * * 1"    # Sunday Night Football, after midnight UTC
+    - cron: "*/5 0-4 * * 2"    # Monday Night Football
+    - cron: "*/5 0-4 * * 5"    # Thursday Night Football
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scoreboard-poll
+  cancel-in-progress: false
+
+env:
+  LEAGUE_ID: "1393377829990727680"
+
+jobs:
+  poll-and-render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - run: python scripts/poll.py
+
+      - run: python scripts/render.py
+
+      - name: Commit and push if anything changed
+        run: |
+          git config user.name "sunday-scoreboard-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/ docs/
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "Update scoreboard $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          for attempt in 1 2 3; do
+            if git push; then
+              exit 0
+            fi
+            echo "Push failed, pulling and retrying ($attempt/3)..."
+            git pull --rebase
+          done
+          git push

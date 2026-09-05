@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Draft Court</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef0e5;
+    --surface:#ffffff;
+    --surface-2:#e2e5d6;
+    --text:#211d15;
+    --text-dim:#6d6a5a;
+    --accent:#7a2331;
+    --accent-ink:#fbecee;
+    --good:#1f7a4d;
+    --good-ink:#eefaf3;
+    --bad:#b1502a;
+    --bad-ink:#fdf1ea;
+    --border:#d8d5c3;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1a1611;
+      --surface:#241f19;
+      --surface-2:#2e2822;
+      --text:#f2ede2;
+      --text-dim:#a89f8e;
+      --accent:#d98a6f;
+      --accent-ink:#241108;
+      --good:#4caf7d;
+      --good-ink:#0b1f16;
+      --bad:#e0895f;
+      --bad-ink:#261408;
+      --border:#3a3327;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1a1611;
+    --surface:#241f19;
+    --surface-2:#2e2822;
+    --text:#f2ede2;
+    --text-dim:#a89f8e;
+    --accent:#d98a6f;
+    --accent-ink:#241108;
+    --good:#4caf7d;
+    --good-ink:#0b1f16;
+    --bad:#e0895f;
+    --bad-ink:#261408;
+    --border:#3a3327;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Public Sans", ui-sans-serif, system-ui, sans-serif;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:34px 16px 60px;
+  }
+
+  .serif{ font-family:"Fraunces", Georgia, serif; }
+  .mono{ font-family:"IBM Plex Mono", ui-monospace, monospace; }
+
+  header{
+    width:100%;
+    max-width:640px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:16px;
+    margin-bottom:22px;
+  }
+  .eyebrow{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:0.66rem;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--accent);
+    margin:0 0 6px;
+  }
+  h1{
+    font-family:"Fraunces", Georgia, serif;
+    font-weight:600;
+    font-optical-sizing:auto;
+    font-size:clamp(2.1rem, 7vw, 2.9rem);
+    line-height:0.98;
+    margin:0;
+    text-wrap:balance;
+  }
+  header p{
+    margin:8px 0 0;
+    color:var(--text-dim);
+    font-size:0.92rem;
+    max-width:44ch;
+  }
+  .progress{
+    text-align:right;
+    flex-shrink:0;
+    font-family:"IBM Plex Mono", monospace;
+  }
+  .progress .label{
+    display:block;
+    font-size:0.6rem;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    margin-bottom:2px;
+  }
+  .progress .value{
+    font-size:1.05rem;
+    font-weight:600;
+    font-variant-numeric:tabular-nums;
+  }
+
+  main{ width:100%; max-width:640px; }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:28px 26px 24px;
+    box-shadow:0 1px 2px rgba(0,0,0,0.05);
+  }
+
+  .case-tag{
+    display:inline-block;
+    font-family:"IBM Plex Mono", monospace;
+    font-size:0.66rem;
+    font-weight:600;
+    letter-spacing:0.09em;
+    text-transform:uppercase;
+    color:var(--accent);
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:99px;
+    padding:4px 12px;
+    margin-bottom:16px;
+  }
+
+  .question{
+    font-family:"Fraunces", Georgia, serif;
+    font-weight:600;
+    font-size:clamp(1.25rem, 4vw, 1.55rem);
+    line-height:1.28;
+    margin:0 0 20px;
+    text-wrap:balance;
+  }
+
+  .options{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .opt-btn{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    text-align:left;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:9px;
+    padding:12px 14px;
+    cursor:pointer;
+    color:var(--text);
+    font-family:"Public Sans", sans-serif;
+    font-size:0.92rem;
+    line-height:1.4;
+    transition:border-color 0.12s ease, background 0.12s ease, transform 0.12s ease;
+  }
+  .opt-btn:hover:not(:disabled){ border-color:var(--accent); }
+  .opt-btn:active:not(:disabled){ transform:scale(0.99); }
+  .opt-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .opt-btn:disabled{ cursor:default; }
+  .opt-letter{
+    font-family:"IBM Plex Mono", monospace;
+    font-weight:600;
+    color:var(--text-dim);
+    flex-shrink:0;
+  }
+  .opt-btn.correct{ background:var(--good); border-color:var(--good); color:var(--good-ink); }
+  .opt-btn.correct .opt-letter{ color:var(--good-ink); }
+  .opt-btn.wrong{ background:var(--bad); border-color:var(--bad); color:var(--bad-ink); }
+  .opt-btn.wrong .opt-letter{ color:var(--bad-ink); }
+  .opt-btn.faded:not(.correct):not(.wrong){ opacity:0.5; }
+
+  .verdict{
+    margin-top:18px;
+    padding-top:16px;
+    border-top:1px dashed var(--border);
+  }
+  .verdict-label{
+    display:block;
+    font-family:"IBM Plex Mono", monospace;
+    font-size:0.66rem;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  .verdict-label.good{ color:var(--good); }
+  .verdict-label.bad{ color:var(--bad); }
+  .verdict p{
+    margin:0 0 16px;
+    font-size:0.9rem;
+    line-height:1.55;
+    color:var(--text);
+  }
+
+  .next-btn{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:0.78rem;
+    font-weight:600;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    background:var(--accent);
+    color:var(--accent-ink);
+    border:none;
+    border-radius:8px;
+    padding:10px 18px;
+    cursor:pointer;
+  }
+  .next-btn:hover{ filter:brightness(1.08); }
+  .next-btn:active{ transform:scale(0.98); }
+
+  .summary{ text-align:center; }
+  .summary .verdict-score{
+    font-family:"Fraunces", Georgia, serif;
+    font-weight:700;
+    font-size:clamp(2.4rem, 10vw, 3.4rem);
+    margin:6px 0 4px;
+  }
+  .summary p{ color:var(--text-dim); font-size:0.92rem; max-width:42ch; margin:0 auto 22px; }
+
+  footer{
+    max-width:640px;
+    width:100%;
+    margin-top:26px;
+    text-align:center;
+    color:var(--text-dim);
+    font-size:0.75rem;
+    line-height:1.55;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; animation:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <p class="eyebrow">League Court &middot; Docket No. 2026</p>
+    <h1 class="serif">Draft Court</h1>
+    <p>Eight real cases from your league's history and this year's draft. No leaderboard &mdash; just see how you do.</p>
+  </div>
+  <div class="progress">
+    <span class="label">Case</span>
+    <span class="value mono" id="progressVal">1 / 5</span>
+  </div>
+</header>
+
+<main>
+  <div class="card" id="quizCard"></div>
+</main>
+
+<footer>
+  Reach/steal calls are judged against a public preseason consensus ADP (FantasyFootballCalculator.com, non-PPR),
+  not this league's own scoring &mdash; a directional read, not gospel.<br>
+  Nothing on this page is saved anywhere. Refresh to start over.
+</footer>
+
+<script>
+(function(){
+
+  var QUESTIONS = [
+    {
+      tag: "2026 Draft · Biggest Reach",
+      q: "Which pick was this draft's biggest reach — taken far earlier than the going market rate for that player?",
+      options: [
+        "Dalton Kincaid, TE — Pick 69 (Round 5)",
+        "Travis Kelce, TE — Pick 77 (Round 6)",
+        "Sam LaPorta, TE — Pick 68 (Round 5)",
+        "Jordyn Tyson, WR — Pick 122 (Round 9)"
+      ],
+      correct: 0,
+      verdict: "Kincaid went 69th overall for Pharaoh Joe (Bluefootedtoby) — about 82 spots ahead of his ~151st preseason consensus ADP. The next-biggest reach, Travis Kelce at 77th (~72 spots early), wasn't far behind."
+    },
+    {
+      tag: "2026 Draft · Biggest Steal",
+      q: "Which pick was this draft's biggest steal — a player who fell way past his going market rate?",
+      options: [
+        "Jerry Jeudy, WR — Pick 199 (Round 15)",
+        "Jauan Jennings, WR — Pick 204 (Round 15)",
+        "Alec Pierce, WR — Pick 108 (Round 8)",
+        "Tre Tucker, WR — Pick 179 (Round 13)"
+      ],
+      correct: 0,
+      verdict: "Jeudy was still on the board at pick 199 — the second-to-last pick of the entire draft — despite a consensus ADP around 127th overall. Team Mehta (sm123456) grabbed him for next to nothing, a 72-spot free fall for a starting-caliber receiver."
+    },
+    {
+      tag: "2026 Draft · Most Quarterbacks",
+      q: "Which team came out of the draft with the most quarterbacks on their roster?",
+      options: [
+        "williamaz",
+        "Team Mehta",
+        "BigWangs",
+        "Anon Akron Billionaire"
+      ],
+      correct: 0,
+      verdict: "williamaz rostered three quarterbacks — Justin Herbert, Jordan Love, and Fernando Mendoza. Team Mehta, BigWangs, and Anon Akron Billionaire were next-closest, but all stopped at two."
+    },
+    {
+      tag: "2026 Draft · Double-RB Start",
+      q: "Two teams opened their draft by taking a running back with each of their first two picks — a classic “double-RB” build. Which two?",
+      options: [
+        "Team Mehta & Team lynnbear",
+        "Volkswagen Jettas & Hakuna Matata",
+        "Pharaoh Joe & Chaffers Eats Ass",
+        "Claude Antonelli & BigWangs"
+      ],
+      correct: 0,
+      verdict: "Team Mehta and Team lynnbear both went running back with picks one and two — the only two teams in the league to open that way."
+    },
+    {
+      tag: "2026 Draft · Zero-RB Approach",
+      q: "Which team waited longest to draft its first running back, going receiver- and quarterback-heavy before ever touching the position?",
+      options: [
+        "Team vnkn",
+        "BigWangs",
+        "Moik",
+        "Volkswagen Jettas"
+      ],
+      correct: 0,
+      verdict: "Team vnkn opened WR, then QB, and didn't draft a running back until Round 4 — the closest thing to a true zero-RB build in this draft. BigWangs, Moik, and Volkswagen Jettas were the next-most patient, but all broke by Round 2."
+    },
+    {
+      tag: "League History · 2023–2025",
+      q: "Which manager has finished in the top 3 (championship or 3rd-place game) in every single season since the league began in 2023?",
+      options: [
+        "Sean17977 (Chaffers Eats Ass)",
+        "bigBurger221",
+        "EATTHEPAIN (Hakuna Matata)",
+        "bhu248 (Volkswagen Jettas)"
+      ],
+      correct: 0,
+      verdict: "Sean17977 won it all in 2023, took 3rd in 2024, and was runner-up in 2025 — the only manager to reach the final four in all three seasons the league has existed."
+    },
+    {
+      tag: "League History · Roster Turnover",
+      q: "How many of this year's 14 managers have been in the league since its very first season back in 2023?",
+      options: ["5", "7", "9", "12"],
+      correct: 2,
+      verdict: "Nine of today's managers were there on day one in 2023. Since then the league has grown from 12 to 14 teams, and three original managers have moved on — most recently replaced by Bluefootedtoby this year."
+    },
+    {
+      tag: "League History · 2024 Champion",
+      q: "sm123456's Team Mehta won the 2024 championship. What was their regular-season record that year, on the way to the title?",
+      options: ["11-3", "10-4", "8-6", "6-8"],
+      correct: 2,
+      verdict: "Team Mehta was good, not great, in the regular season — an 8-6 record right in the middle of the pack — then got hot exactly when it mattered."
+    }
+  ];
+
+  var idx = 0;
+  var scoreCorrect = 0;
+  var quizCard = document.getElementById("quizCard");
+  var progressVal = document.getElementById("progressVal");
+
+  function letterFor(i){ return String.fromCharCode(65 + i); }
+
+  function renderQuestion(){
+    progressVal.textContent = (idx + 1) + " / " + QUESTIONS.length;
+    var item = QUESTIONS[idx];
+    var html = '<span class="case-tag">' + item.tag + '</span>';
+    html += '<h2 class="question serif">' + item.q + '</h2>';
+    html += '<div class="options" id="opts">';
+    item.options.forEach(function(opt, i){
+      html += '<button class="opt-btn" data-i="' + i + '">' +
+        '<span class="opt-letter">' + letterFor(i) + '</span><span>' + opt + '</span></button>';
+    });
+    html += '</div>';
+    html += '<div class="verdict" id="verdict" hidden>' +
+      '<span class="verdict-label" id="verdictLabel"></span>' +
+      '<p id="verdictText"></p>' +
+      '<button class="next-btn" id="nextBtn"></button>' +
+      '</div>';
+    quizCard.innerHTML = html;
+
+    var buttons = quizCard.querySelectorAll(".opt-btn");
+    buttons.forEach(function(btn){
+      btn.addEventListener("click", function(){ onAnswer(+btn.getAttribute("data-i")); });
+    });
+  }
+
+  function onAnswer(choiceIdx){
+    var item = QUESTIONS[idx];
+    var isRight = choiceIdx === item.correct;
+    if (isRight) scoreCorrect++;
+
+    var buttons = quizCard.querySelectorAll(".opt-btn");
+    buttons.forEach(function(btn){
+      var i = +btn.getAttribute("data-i");
+      btn.disabled = true;
+      if (i === item.correct) btn.classList.add("correct");
+      else if (i === choiceIdx) btn.classList.add("wrong");
+      else btn.classList.add("faded");
+    });
+
+    var verdict = document.getElementById("verdict");
+    var label = document.getElementById("verdictLabel");
+    var text = document.getElementById("verdictText");
+    var nextBtn = document.getElementById("nextBtn");
+
+    label.textContent = isRight ? "Verdict: Correct" : "Verdict: Overruled";
+    label.className = "verdict-label " + (isRight ? "good" : "bad");
+    text.textContent = item.verdict;
+    nextBtn.textContent = idx < QUESTIONS.length - 1 ? "Next case →" : "See final ruling →";
+    nextBtn.addEventListener("click", advance);
+    verdict.hidden = false;
+  }
+
+  function advance(){
+    idx++;
+    if (idx >= QUESTIONS.length){
+      renderSummary();
+    } else {
+      renderQuestion();
+    }
+  }
+
+  function renderSummary(){
+    progressVal.textContent = QUESTIONS.length + " / " + QUESTIONS.length;
+    var html = '<div class="summary">';
+    html += '<span class="case-tag">Case Closed</span>';
+    html += '<div class="verdict-score serif">' + scoreCorrect + ' / ' + QUESTIONS.length + '</div>';
+    html += '<p>' + summaryLine(scoreCorrect) + '</p>';
+    html += '<button class="next-btn" id="restartBtn">Reopen the case →</button>';
+    html += '</div>';
+    quizCard.innerHTML = html;
+    document.getElementById("restartBtn").addEventListener("click", function(){
+      idx = 0;
+      scoreCorrect = 0;
+      renderQuestion();
+    });
+  }
+
+  function summaryLine(n){
+    if (n === 5) return "Perfect record — you know this draft and this league cold.";
+    if (n >= 3) return "Solid ruling — you clearly follow along.";
+    if (n >= 1) return "A few surprises in there, even for a league insider.";
+    return "Tough docket. There's a lot of league history to catch up on.";
+  }
+
+  renderQuestion();
+})();
+</script>
+
+</body>
+</html>

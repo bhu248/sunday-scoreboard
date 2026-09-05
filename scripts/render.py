@@ -336,6 +336,7 @@ INDEX_TEMPLATE = r"""<!doctype html>
   h1{ font-size:1.8rem; }
   ul{ padding-left: 1.2rem; line-height: 2; }
   a{ color:#1f6b3d; font-weight:600; }
+  .quiz-link{ margin-top:2rem; padding-top:1.25rem; border-top:1px solid #ddd9cc; }
 </style>
 </head>
 <body>
@@ -343,6 +344,7 @@ INDEX_TEMPLATE = r"""<!doctype html>
   <ul>
 __ITEMS__
   </ul>
+  <p class="quiz-link">🏈 <a href="quiz.html">Guess the Drafter</a> &mdash; guess which manager drafted each player from this year's real draft.</p>
 </body>
 </html>
 """

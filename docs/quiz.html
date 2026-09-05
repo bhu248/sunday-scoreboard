@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guess the Drafter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f2f1ec;
+    --surface:#ffffff;
+    --surface-2:#e9e6dd;
+    --text:#1c1b18;
+    --text-dim:#6b6a63;
+    --accent:#a9690a;
+    --accent-ink:#fff8ec;
+    --good:#1f8a5b;
+    --good-ink:#f3fbf6;
+    --bad:#c23b34;
+    --bad-ink:#fdf3f2;
+    --border:#dcd8cc;
+    --glow: radial-gradient(ellipse 70% 55% at 50% 0%, rgba(169,105,10,0.12), transparent 70%);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0f1216;
+      --surface:#171b21;
+      --surface-2:#1f242c;
+      --text:#f1efe9;
+      --text-dim:#98a0aa;
+      --accent:#e8b23d;
+      --accent-ink:#1a1300;
+      --good:#4caf7d;
+      --good-ink:#0b1f16;
+      --bad:#e0605a;
+      --bad-ink:#260c0a;
+      --border:#2a3038;
+      --glow: radial-gradient(ellipse 70% 55% at 50% 0%, rgba(232,178,61,0.10), transparent 70%);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f1216;
+    --surface:#171b21;
+    --surface-2:#1f242c;
+    --text:#f1efe9;
+    --text-dim:#98a0aa;
+    --accent:#e8b23d;
+    --accent-ink:#1a1300;
+    --good:#4caf7d;
+    --good-ink:#0b1f16;
+    --bad:#e0605a;
+    --bad-ink:#260c0a;
+    --border:#2a3038;
+    --glow: radial-gradient(ellipse 70% 55% at 50% 0%, rgba(232,178,61,0.10), transparent 70%);
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--bg);
+    background-image:var(--glow);
+    background-repeat:no-repeat;
+    color:var(--text);
+    font-family:"Public Sans", ui-sans-serif, system-ui, sans-serif;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:32px 16px 64px;
+  }
+
+  .mono{ font-family:"IBM Plex Mono", ui-monospace, monospace; }
+  .display{ font-family:"Big Shoulders Display", ui-sans-serif, sans-serif; }
+
+  header{
+    width:100%;
+    max-width:720px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:16px;
+    margin-bottom:22px;
+  }
+  .titleblock h1{
+    font-family:"Big Shoulders Display", sans-serif;
+    font-weight:800;
+    font-size:clamp(2rem, 6vw, 2.9rem);
+    letter-spacing:0.01em;
+    line-height:0.92;
+    margin:0;
+    text-wrap:balance;
+  }
+  .titleblock p{
+    margin:6px 0 0;
+    color:var(--text-dim);
+    font-size:0.95rem;
+    max-width:46ch;
+  }
+  .scorebox{
+    text-align:right;
+    flex-shrink:0;
+  }
+  .scorebox .label{
+    display:block;
+    font-size:0.62rem;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    margin-bottom:2px;
+  }
+  .scorebox .value{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:1.15rem;
+    font-weight:600;
+    font-variant-numeric:tabular-nums;
+  }
+  .scorebox .footnote{
+    display:block;
+    font-size:0.62rem;
+    color:var(--text-dim);
+    margin-top:2px;
+  }
+
+  main{
+    width:100%;
+    max-width:720px;
+  }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:26px 26px 22px;
+    box-shadow:0 1px 2px rgba(0,0,0,0.04);
+  }
+
+  .ticker{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-family:"IBM Plex Mono", monospace;
+    font-size:0.72rem;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--accent);
+    border-bottom:1px dashed var(--border);
+    padding-bottom:14px;
+    margin-bottom:20px;
+  }
+  .ticker span.dim{ color:var(--text-dim); }
+
+  .pick-reveal{
+    text-align:center;
+    padding:6px 0 22px;
+  }
+  .pos-badge{
+    display:inline-block;
+    font-family:"IBM Plex Mono", monospace;
+    font-size:0.7rem;
+    font-weight:600;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    background:var(--surface-2);
+    color:var(--text-dim);
+    border:1px solid var(--border);
+    border-radius:99px;
+    padding:3px 11px;
+    margin-bottom:12px;
+  }
+  .player-name{
+    font-family:"Big Shoulders Display", sans-serif;
+    font-weight:700;
+    font-size:clamp(1.9rem, 7vw, 2.6rem);
+    line-height:1;
+    margin:0 0 6px;
+    text-wrap:balance;
+  }
+  .player-team{
+    color:var(--text-dim);
+    font-size:0.95rem;
+  }
+
+  .prompt{
+    text-align:center;
+    font-size:0.85rem;
+    color:var(--text-dim);
+    margin:0 0 16px;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:9px;
+  }
+  @media (min-width:560px){
+    .grid{ grid-template-columns:repeat(3, 1fr); }
+  }
+
+  .team-btn{
+    font-family:"Public Sans", sans-serif;
+    text-align:left;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:9px;
+    padding:10px 12px;
+    cursor:pointer;
+    color:var(--text);
+    transition:transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+  }
+  .team-btn:hover:not(:disabled){
+    border-color:var(--accent);
+  }
+  .team-btn:active:not(:disabled){
+    transform:scale(0.98);
+  }
+  .team-btn:focus-visible{
+    outline:2px solid var(--accent);
+    outline-offset:2px;
+  }
+  .team-btn:disabled{ cursor:default; }
+  .team-btn .tname{
+    display:block;
+    font-weight:600;
+    font-size:0.88rem;
+    line-height:1.25;
+  }
+  .team-btn .uname{
+    display:block;
+    font-family:"IBM Plex Mono", monospace;
+    font-size:0.68rem;
+    color:var(--text-dim);
+    margin-top:2px;
+  }
+  .team-btn.correct{
+    background:var(--good);
+    border-color:var(--good);
+    color:var(--good-ink);
+  }
+  .team-btn.correct .uname{ color:var(--good-ink); opacity:0.75; }
+  .team-btn.wrong{
+    background:var(--bad);
+    border-color:var(--bad);
+    color:var(--bad-ink);
+  }
+  .team-btn.wrong .uname{ color:var(--bad-ink); opacity:0.75; }
+  .team-btn.faded:not(.correct):not(.wrong){
+    opacity:0.45;
+  }
+
+  .result-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    margin-top:18px;
+    min-height:38px;
+  }
+  .result-msg{
+    font-size:0.9rem;
+    font-weight:600;
+  }
+  .result-msg.good{ color:var(--good); }
+  .result-msg.bad{ color:var(--bad); }
+
+  .next-btn{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:0.78rem;
+    font-weight:600;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    background:var(--accent);
+    color:var(--accent-ink);
+    border:none;
+    border-radius:8px;
+    padding:10px 16px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .next-btn:hover{ filter:brightness(1.06); }
+  .next-btn:active{ transform:scale(0.98); }
+
+  footer{
+    max-width:720px;
+    width:100%;
+    margin-top:26px;
+    text-align:center;
+    color:var(--text-dim);
+    font-size:0.76rem;
+    line-height:1.5;
+  }
+  footer a{ color:inherit; }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; animation:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="titleblock">
+    <h1>GUESS&nbsp;THE&nbsp;DRAFTER</h1>
+    <p>205 real picks from your league's 2026 draft. See the player, pick the manager who took them.</p>
+  </div>
+  <div class="scorebox">
+    <span class="label">Score</span>
+    <span class="value mono" id="scoreVal">0 / 0</span>
+    <span class="footnote">this visit only</span>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <div class="ticker">
+      <span id="tickerRound">ROUND &mdash;</span>
+      <span class="dim" id="tickerOverall">PICK &mdash; OVERALL</span>
+    </div>
+
+    <div class="pick-reveal">
+      <span class="pos-badge" id="posBadge">&mdash;</span>
+      <h2 class="player-name" id="playerName">&mdash;</h2>
+      <div class="player-team" id="playerTeam">&mdash;</div>
+    </div>
+
+    <p class="prompt">Which team drafted this player?</p>
+
+    <div class="grid" id="teamGrid"></div>
+
+    <div class="result-row">
+      <span class="result-msg" id="resultMsg"></span>
+      <button class="next-btn" id="nextBtn">Next pick &rarr;</button>
+    </div>
+  </div>
+
+  <footer>
+    Nothing here is saved anywhere &mdash; refresh the page and the score resets.<br>
+    Built from the real pick order of your league's 2026 snake draft.
+  </footer>
+</main>
+
+<script>
+(function(){
+  // roster_id -> {team, user}
+  var TEAMS = {
+    1:  {team:"Pharaoh Joe",              user:"Bluefootedtoby"},
+    2:  {team:"Team vnkn",                user:"vnkn"},
+    3:  {team:"Team bigBurger221",        user:"bigBurger221"},
+    4:  {team:"Claude Antonelli",         user:"caiismyname"},
+    5:  {team:"Moik",                     user:"Coolmark"},
+    6:  {team:"Hakuna Matata",            user:"EATTHEPAIN"},
+    7:  {team:"Chaffers Eats Ass",        user:"Sean17977"},
+    8:  {team:"Volkswagen Jettas",        user:"bhu248"},
+    9:  {team:"BigWangs",                 user:"awang1324"},
+    10: {team:"Team lynnbear",            user:"lynnbear"},
+    11: {team:"Team SgtGigglesIV",        user:"SgtGigglesIV"},
+    12: {team:"Team Mehta",               user:"sm123456"},
+    13: {team:"williamaz",                user:"willyaz"},
+    14: {team:"Anon Akron Billionaire",   user:"aliu98"}
+  };
+
+  // pick_no|round|roster_id|first|last|pos|nfl
+  var RAW = [
+"1|1|14|Jahmyr|Gibbs|RB|DET","2|1|13|Bijan|Robinson|RB|ATL","3|1|12|Christian|McCaffrey|RB|SF","4|1|4|Jonathan|Taylor|RB|IND",
+"5|1|9|Amon-Ra|St. Brown|WR|DET","6|1|2|Ja'Marr|Chase|WR|CIN","7|1|11|James|Cook|RB|BUF","8|1|5|Puka|Nacua|WR|LAR",
+"9|1|3|Jaxon|Smith-Njigba|WR|SEA","10|1|8|Justin|Jefferson|WR|MIN","11|1|10|Chase|Brown|RB|CIN","12|1|6|De'Von|Achane|RB|MIA",
+"13|1|1|Saquon|Barkley|RB|PHI","14|1|7|Omarion|Hampton|RB|LAC","15|2|7|A.J.|Brown|WR|NE","16|2|1|George|Pickens|WR|DAL",
+"17|2|6|CeeDee|Lamb|WR|DAL","18|2|10|Derrick|Henry|RB|BAL","19|2|8|Kenneth|Walker|RB|KC","20|2|3|Ashton|Jeanty|RB|LV",
+"21|2|5|Kyren|Williams|RB|LAR","22|2|11|Drake|London|WR|ATL","23|2|2|Josh|Allen|QB|BUF","24|2|9|Javonte|Williams|RB|DAL",
+"25|2|4|Nico|Collins|WR|HOU","26|2|12|Jeremiyah|Love|RB|ARI","27|2|13|Malik|Nabers|WR|NYG","28|2|14|Brock|Bowers|TE|LV",
+"29|3|14|Chris|Olave|WR|NO","30|3|13|DeVonta|Smith|WR|PHI","31|3|12|Cam|Skattebo|RB|NYG","32|3|4|Josh|Jacobs|RB|GB",
+"33|3|9|Rashee|Rice|WR|KC","34|3|2|Trey|McBride|TE|ARI","35|3|11|Ladd|McConkey|WR|LAC","36|3|5|Breece|Hall|RB|NYJ",
+"37|3|3|Tetairoa|McMillan|WR|CAR","38|3|8|Lamar|Jackson|QB|BAL","39|3|10|Colston|Loveland|TE|CHI","40|3|6|Tee|Higgins|WR|CIN",
+"41|3|1|Joe|Burrow|QB|CIN","42|3|7|Travis|Etienne|RB|NO","43|4|7|Luther|Burden|WR|CHI","44|4|1|Zay|Flowers|WR|BAL",
+"45|4|6|Jaylen|Waddle|WR|DEN","46|4|10|Emeka|Egbuka|WR|TB","47|4|8|Garrett|Wilson|WR|NYJ","48|4|3|D'Andre|Swift|RB|CHI",
+"49|4|5|Terry|McLaurin|WR|WAS","50|4|11|David|Montgomery|RB|HOU","51|4|2|Bucky|Irving|RB|TB","52|4|9|Quinshon|Judkins|RB|CLE",
+"53|4|4|DJ|Moore|WR|BUF","54|4|12|Drake|Maye|QB|NE","55|4|13|TreVeyon|Henderson|RB|NE","56|4|14|Jadarian|Price|RB|SEA",
+"57|5|14|Chuba|Hubbard|RB|CAR","58|5|13|Davante|Adams|WR|LAR","59|5|12|Mike|Evans|WR|SF","60|5|4|Tucker|Kraft|TE|GB",
+"61|5|9|Bhayshul|Tuten|RB|JAX","62|5|2|Jameson|Williams|WR|DET","63|5|11|Jalen|Hurts|QB|PHI","64|5|5|Rome|Odunze|WR|CHI",
+"65|5|3|Tyler|Warren|TE|IND","66|5|8|Christian|Watson|WR|GB","67|5|10|Parker|Washington|WR|JAX","68|5|6|Sam|LaPorta|TE|DET",
+"69|5|1|Dalton|Kincaid|TE|BUF","70|5|7|Marvin|Harrison|WR|ARI","71|6|7|Harold|Fannin|TE|CLE","72|6|1|Rhamondre|Stevenson|RB|NE",
+"73|6|6|Jonathon|Brooks|RB|CAR","74|6|10|Jaylen|Warren|RB|PIT","75|6|8|Kyle|Pitts|TE|ATL","76|6|3|Jayden|Daniels|QB|WAS",
+"77|6|5|Travis|Kelce|TE|KC","78|6|11|DK|Metcalf|WR|PIT","79|6|2|Tony|Pollard|RB|TEN","80|6|9|Caleb|Williams|QB|CHI",
+"81|6|4|RJ|Harvey|RB|DEN","82|6|12|Brian|Thomas|WR|JAX","83|6|13|Justin|Herbert|QB|LAC","84|6|14|Carnell|Tate|WR|TEN",
+"85|7|14|Courtland|Sutton|WR|DEN","86|7|13|Rico|Dowdle|RB|PIT","87|7|12|Michael|Wilson|WR|ARI","88|7|4|Jaxson|Dart|QB|NYG",
+"89|7|9|George|Kittle|TE|SF","90|7|2|Chris|Godwin|WR|TB","91|7|11|J.K.|Dobbins|RB|DEN","92|7|5|Dak|Prescott|QB|DAL",
+"93|7|3|Quentin|Johnston|WR|LAC","94|7|8|Jacory|Croskey-Merritt|RB|WAS","95|7|10|Trevor|Lawrence|QB|JAX","96|7|6|Jordan|Mason|RB|MIN",
+"97|7|1|Blake|Corum|RB|LAR","98|7|7|Matthew|Stafford|QB|LAR","99|8|7|MarShawn|Lloyd|RB|GB","100|8|1|Makai|Lemon|WR|PHI",
+"101|8|6|Michael|Pittman|WR|PIT","102|8|10|Jayden|Reed|WR|GB","103|8|8|De'Zhaun|Stribling|WR|SF","104|8|3|Rachaad|White|RB|WAS",
+"105|8|5|Jordan|Addison|WR|MIN","106|8|11|Isaiah|Likely|TE|NYG","107|8|2|Kyle|Monangai|RB|CHI","108|8|9|Alec|Pierce|WR|IND",
+"109|8|4|Stefon|Diggs|WR|WAS","110|8|12|Patrick|Mahomes|QB|KC","111|8|13|Jake|Ferguson|TE|DAL","112|8|14|Brock|Purdy|QB|SF",
+"113|9|14|Josh|Downs|WR|IND","114|9|13|Kenny|Gainwell|RB|TB","115|9|12|Los Angeles|Rams|DEF|LAR","116|9|4|Kaelon|Black|RB|SF",
+"117|9|9|Houston|Texans|DEF|HOU","118|9|2|KC|Concepcion|WR|CLE","119|9|11|Matthew|Golden|WR|GB","120|9|5|Brandon|Aubrey|K|DAL",
+"121|9|3|Romeo|Doubs|WR|NE","122|9|8|Jordyn|Tyson|WR|NO","123|9|10|Ka'imi|Fairbairn|K|HOU","124|9|6|Chris|Rodriguez|RB|JAX",
+"125|9|1|Seattle|Seahawks|DEF|SEA","126|9|7|Mike|Washington|RB|LV","127|10|7|Kyler|Murray|QB|MIN","128|10|1|Bo|Nix|QB|DEN",
+"129|10|6|Jared|Goff|QB|DET","130|10|10|Xavier|Worthy|WR|KC","131|10|8|Aaron|Jones|RB|MIN","132|10|3|Wan'Dale|Robinson|WR|TEN",
+"133|10|5|Denver|Broncos|DEF|DEN","134|10|11|Deebo|Samuel|WR|SF","135|10|2|Jakobi|Meyers|WR|JAX","136|10|9|Dallas|Goedert|TE|PHI",
+"137|10|4|Evan|McPherson|K|CIN","138|10|12|Mark|Andrews|TE|BAL","139|10|13|Philadelphia|Eagles|DEF|PHI","140|10|14|Tyler|Allgeier|RB|ARI",
+"141|11|14|Woody|Marks|RB|HOU","142|11|13|Cameron|Dicker|K|LAC","143|11|12|Ja'Kobi|Lane|WR|BAL","144|11|4|Cyrus|Allen|WR|KC",
+"145|11|9|Jason|Myers|K|SEA","146|11|2|Jalen|Coker|WR|CAR","147|11|11|Baltimore|Ravens|DEF|BAL","148|11|5|Jonah|Coleman|RB|DEN",
+"149|11|3|Keaton|Mitchell|RB|LAC","150|11|8|Khalil|Shakir|WR|BUF","151|11|10|Tyler|Shough|QB|NO","152|11|6|Zach|Charbonnet|RB|SEA",
+"153|11|1|Rashid|Shaheed|WR|SEA","154|11|7|Chris|Bell|WR|MIA","155|12|7|New England|Patriots|DEF|NE","156|12|1|Harrison|Butker|K|KC",
+"157|12|6|Emmett|Johnson|RB|KC","158|12|10|Brian|Robinson|RB|ATL","159|12|8|Tyjae|Spears|RB|TEN","160|12|3|Keenan|Allen|WR|IND",
+"161|12|5|Hunter|Henry|TE|NE","162|12|11|Tyrone|Tracy|RB|NYG","163|12|2|Los Angeles|Chargers|DEF|LAC","164|12|9|Baker|Mayfield|QB|TB",
+"165|12|4|Minnesota|Vikings|DEF|MIN","166|12|12|Alvin|Kamara|RB|NO","167|12|13|Tank|Bigsby|RB|PHI","168|12|14|Cam|Little|K|JAX",
+"169|13|14|Juwan|Johnson|TE|NO","170|13|13|Jordan|Love|QB|GB","171|13|12|Oronde|Gadsden|TE|LAC","172|13|4|Omar|Cooper|WR|NYJ",
+"173|13|9|Jalen|Nailor|WR|LV","174|13|2|Dylan|Sampson|RB|CLE","175|13|11|Malik|Washington|WR|MIA","176|13|5|Denzel|Boston|WR|CLE",
+"177|13|3|Braelon|Allen|RB|NYJ","178|13|8|Ray|Davis|RB|BUF","179|13|10|Tre|Tucker|WR|LV","180|13|6|Malachi|Fields|WR|NYG",
+"181|13|1|AJ|Barner|TE|SEA","182|13|7|Kayshon|Boutte|WR|HOU","183|14|7|Nicholas|Singleton|RB|TEN","184|14|1|Kimani|Vidal|RB|LAC",
+"185|14|6|Malik|Willis|QB|MIA","186|14|10|Caleb|Douglas|WR|MIA","187|14|8|Jaylen|Wright|RB|MIA","188|14|3|Dontayvion|Wicks|WR|PHI",
+"189|14|5|Brenton|Strange|TE|JAX","190|14|11|T.J.|Hockenson|TE|MIN","191|14|2|Harrison|Mevis|K|LAR","192|14|9|Travis|Hunter|WR|JAX",
+"193|14|4|Kenyon|Sadiq|TE|NYJ","194|14|12|Jake|Bates|K|DET","195|14|13|Fernando|Mendoza|QB|LV","196|14|14|Jacksonville|Jaguars|DEF|JAX",
+"197|15|14|Sam|Darnold|QB|SEA","198|15|13|Chig|Okonkwo|TE|WAS","199|15|12|Jerry|Jeudy|WR|CLE","200|15|4|Aaron|Rodgers|QB|PIT",
+"201|15|9|Cooper|Kupp|WR|SEA","202|15|2|Dalton|Schultz|TE|HOU","203|15|11|Will|Reichard|K|MIN","204|15|5|Jauan|Jennings|WR|MIN",
+"205|15|3|Tyler|Loop|K|BAL"
+  ];
+
+  var PICKS = RAW.map(function(line){
+    var p = line.split("|");
+    return {
+      pick: +p[0], round: +p[1], rid: +p[2],
+      first: p[3], last: p[4], pos: p[5], nfl: p[6]
+    };
+  });
+
+  var TEAM_IDS = Object.keys(TEAMS).map(Number);
+
+  // shuffle bag so we don't repeat until every pick has shown once
+  var bag = [];
+  function refillBag(){
+    bag = PICKS.map(function(_, i){ return i; });
+    for (var i = bag.length - 1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = bag[i]; bag[i] = bag[j]; bag[j] = t;
+    }
+  }
+  function nextPickIndex(){
+    if (bag.length === 0) refillBag();
+    return bag.pop();
+  }
+
+  var score = { correct: 0, seen: 0 };
+  var current = null;
+  var answered = false;
+
+  var teamGrid = document.getElementById("teamGrid");
+  var nextBtn = document.getElementById("nextBtn");
+  var resultMsg = document.getElementById("resultMsg");
+  var scoreVal = document.getElementById("scoreVal");
+  var tickerRound = document.getElementById("tickerRound");
+  var tickerOverall = document.getElementById("tickerOverall");
+  var posBadge = document.getElementById("posBadge");
+  var playerName = document.getElementById("playerName");
+  var playerTeam = document.getElementById("playerTeam");
+
+  // shuffle team button order once per pick, so the correct slot isn't
+  // always in the same visual position (roster_id order would leak a pattern)
+  function shuffledTeamIds(){
+    var ids = TEAM_IDS.slice();
+    for (var i = ids.length - 1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = ids[i]; ids[i] = ids[j]; ids[j] = t;
+    }
+    return ids;
+  }
+
+  function buildGrid(){
+    teamGrid.innerHTML = "";
+    var order = shuffledTeamIds();
+    order.forEach(function(rid){
+      var t = TEAMS[rid];
+      var btn = document.createElement("button");
+      btn.className = "team-btn";
+      btn.setAttribute("data-rid", rid);
+      btn.innerHTML =
+        '<span class="tname">' + t.team + '</span>' +
+        '<span class="uname">@' + t.user + '</span>';
+      btn.addEventListener("click", function(){ onGuess(this); });
+      teamGrid.appendChild(btn);
+    });
+  }
+
+  function loadPick(){
+    answered = false;
+    resultMsg.textContent = "";
+    resultMsg.className = "result-msg";
+    var idx = nextPickIndex();
+    current = PICKS[idx];
+
+    tickerRound.textContent = "ROUND " + current.round;
+    tickerOverall.textContent = "PICK " + current.pick + " OVERALL";
+    posBadge.textContent = current.pos + " · " + current.nfl;
+    playerName.textContent = current.first + " " + current.last;
+    playerTeam.textContent = current.pos === "DEF"
+      ? "Team defense"
+      : "NFL team: " + current.nfl;
+
+    buildGrid();
+  }
+
+  function onGuess(btn){
+    if (answered) return;
+    answered = true;
+    var guessRid = +btn.getAttribute("data-rid");
+    var correctRid = current.rid;
+    var isRight = guessRid === correctRid;
+
+    score.seen++;
+    if (isRight) score.correct++;
+    scoreVal.textContent = score.correct + " / " + score.seen;
+
+    var buttons = teamGrid.querySelectorAll(".team-btn");
+    buttons.forEach(function(b){
+      var rid = +b.getAttribute("data-rid");
+      b.disabled = true;
+      if (rid === correctRid){
+        b.classList.add("correct");
+      } else if (rid === guessRid){
+        b.classList.add("wrong");
+      } else {
+        b.classList.add("faded");
+      }
+    });
+
+    if (isRight){
+      resultMsg.textContent = "Correct — nice memory.";
+      resultMsg.classList.add("good");
+    } else {
+      resultMsg.textContent = "Nope — that was " + TEAMS[correctRid].team + ".";
+      resultMsg.classList.add("bad");
+    }
+  }
+
+  nextBtn.addEventListener("click", loadPick);
+
+  loadPick();
+})();
+</script>
+
+</body>
+</html>

@@ -13,8 +13,6 @@
     --surface:#f6f5f0; --surface-raised:#ffffff; --surface-sunken:#ebe9e1;
     --ink:#17181a; --ink-secondary:#54544c; --ink-muted:#8b897e;
     --border:rgba(23,24,26,0.11); --accent:#1f6b3d; --accent-ink:#ffffff;
-    --live:#c96a12; --live-surface:#f7ead6;
-    --winner:#a8790a;
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
@@ -22,8 +20,6 @@
       --surface:#131311; --surface-raised:#1c1c19; --surface-sunken:#0f0f0d;
       --ink:#f1efe6; --ink-secondary:#c4c2b6; --ink-muted:#8b897e;
       --border:rgba(241,239,230,0.12); --accent:#4fae74; --accent-ink:#0d140f;
-      --live:#f0ac3f; --live-surface:#362a15;
-      --winner:#e6b93d;
     }
   }
   :root[data-theme="dark"]{
@@ -31,17 +27,15 @@
     --surface:#131311; --surface-raised:#1c1c19; --surface-sunken:#0f0f0d;
     --ink:#f1efe6; --ink-secondary:#c4c2b6; --ink-muted:#8b897e;
     --border:rgba(241,239,230,0.12); --accent:#4fae74; --accent-ink:#0d140f;
-    --live:#f0ac3f; --live-surface:#362a15;
-    --winner:#e6b93d;
   }
   *{box-sizing:border-box;}
   body{ margin:0; background:var(--surface); color:var(--ink); font-family:"Public Sans",system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
   .wrap{ max-width:860px; margin:0 auto; padding:2.5rem 1.25rem 4rem; }
   .display{ font-family:"Big Shoulders Display",sans-serif; font-weight:800; }
-  .mono{ font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums; }
   a{ color:var(--accent); }
   .eyebrow{ font-size:0.76rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--accent); margin-bottom:0.6rem; }
   h1{ font-size:clamp(2rem,5vw,3rem); line-height:0.98; margin:0 0 1.6rem; }
+<<<<<<< HEAD
   .race-card{ background:var(--surface-raised); border:1px solid var(--border); border-radius:12px; padding:1.4rem; }
   .race-head{ display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1rem; flex-wrap:wrap; }
   .live-badge{ display:inline-flex; align-items:center; gap:0.4em; background:var(--live-surface); color:var(--live); font-size:0.72rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; padding:0.3em 0.65em; border-radius:100px; }
@@ -75,12 +69,19 @@
   .scrub-marker{ position:absolute; top:0; transform:translate(-50%,-50%); width:8px; height:8px; border-radius:50%; background:var(--live); border:1.5px solid var(--surface-raised); cursor:pointer; pointer-events:auto; z-index:1; }
   .scrub-marker:hover{ transform:translate(-50%,-50%) scale(1.4); }
   .scrub-marker.winning{ width:15px; height:15px; background:var(--winner); border:none; border-radius:0; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); filter: drop-shadow(0 0 1px var(--surface-raised)); z-index:2; }
+=======
+  .card{ background:var(--surface-raised); border:1px solid var(--border); border-radius:12px; padding:1.6rem; }
+  .card p{ color:var(--ink-secondary); line-height:1.6; margin:0 0 0.8rem; }
+  .card p:last-child{ margin-bottom:0; }
+  footer{ margin-top:2.5rem; font-size:0.8rem; color:var(--ink-muted); }
+>>>>>>> d6c35d1 (9/9/26 updates)
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="eyebrow">Week 1 &middot; <a href="index.html">all weeks</a></div>
   <h1 class="display">Sunday Scoreboard</h1>
+<<<<<<< HEAD
   <div class="race-card">
     <div class="race-head">
       <span class="mono" id="clockLabel" style="font-size:0.9rem;font-weight:600;"></span>
@@ -103,10 +104,15 @@
       <span class="item"><span class="swatch dot" style="background:var(--live)"></span>Big play (click to jump)</span>
       <span class="item"><span class="swatch star"></span>Week-winning play</span>
     </div>
+=======
+  <div class="card">
+    <p>No live snapshots yet for Week 1 — polling begins automatically once this week's game windows open.</p>
+    <p>Check back once kickoff starts; this page rebuilds itself fresh from real data with every poll.</p>
+>>>>>>> d6c35d1 (9/9/26 updates)
   </div>
-  <p class="meta">Teams are ranked by live-projected final (the pale bar), not actual points banked so far — a team with a big head start from players already done can still sit below one with more real upside left on the field. Rebuilt automatically from Sleeper API snapshots polled every few minutes during game windows. Opens showing the latest snapshot — drag the scrubber back to replay how the day got there. Reload for the newest data; this page doesn't auto-refresh itself.</p>
   <footer>Sunday Scoreboard &middot; league <span class="mono">1393377829990727680</span></footer>
 </div>
+<<<<<<< HEAD
 <script>
 (function(){
   "use strict";
@@ -275,5 +281,7 @@
   render(current); // show the latest snapshot by default; drag the scrubber to replay the day
 })();
 </script>
+=======
+>>>>>>> d6c35d1 (9/9/26 updates)
 </body>
 </html>

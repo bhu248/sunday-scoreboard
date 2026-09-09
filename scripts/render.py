@@ -218,6 +218,8 @@ TEMPLATE = r"""<!doctype html>
   .race-flash.show{ opacity:1; }
   .race-legend{ display:flex; gap:1.2rem; font-size:0.76rem; color:var(--ink-secondary); margin-top:1rem; flex-wrap:wrap; }
   .race-legend .item{ display:flex; align-items:center; gap:0.4em; }
+  .race-legend .item.clickable{ cursor:pointer; }
+  .race-legend .item.clickable:hover{ color:var(--ink); }
   .race-legend .swatch{ width:13px; height:9px; border-radius:2px; background:var(--ink-muted); }
   .race-legend .swatch.proj{ opacity:0.32; }
   .race-legend .swatch.dot{ width:9px; height:9px; border-radius:50%; }
@@ -261,8 +263,8 @@ TEMPLATE = r"""<!doctype html>
     <div class="race-legend">
       <span class="item"><span class="swatch"></span>Actual points</span>
       <span class="item"><span class="swatch proj"></span>Live-projected final</span>
-      <span class="item"><span class="swatch dot" style="background:var(--live)"></span>Big play (click to jump)</span>
-      <span class="item"><span class="swatch star"></span>Week-winning play</span>
+      <span class="item clickable" id="legendBigPlay"><span class="swatch dot" style="background:var(--live)"></span>Big play (click to jump)</span>
+      <span class="item clickable" id="legendWeekWinning"><span class="swatch star"></span>Week-winning play</span>
     </div>
   </div>
   <p class="meta">Teams are ranked by live-projected final (the pale bar), not actual points banked so far — a team with a big head start from players already done can still sit below one with more real upside left on the field. Rebuilt automatically from Sleeper API snapshots polled every few minutes during game windows. Opens showing the latest snapshot — drag the scrubber back to replay how the day got there. Reload for the newest data; this page doesn't auto-refresh itself.</p>
@@ -379,25 +381,45 @@ TEMPLATE = r"""<!doctype html>
   // play, positioned along the scrubber by frame index.
   var markersEl = document.getElementById("scrubMarkers");
   function pctForFrame(idx){ return frames.length > 1 ? (idx / (frames.length - 1)) * 100 : 0; }
+  function jumpTo(frameIdx){
+    setPlaying(false);
+    clearInterval(timer);
+    current = frameIdx;
+    scrub.value = frameIdx;
+    render(frameIdx);
+  }
   function addMarker(frameIdx, title, cls){
     var m = document.createElement("div");
     m.className = "scrub-marker" + (cls ? " " + cls : "");
     m.style.left = pctForFrame(frameIdx) + "%";
     m.title = title;
-    m.addEventListener("click", function(){
-      setPlaying(false);
-      clearInterval(timer);
-      current = frameIdx;
-      scrub.value = frameIdx;
-      render(frameIdx);
-    });
+    m.addEventListener("click", function(){ jumpTo(frameIdx); });
     markersEl.appendChild(m);
   }
-  (DATA.bigPlays || []).forEach(function(p){
+  var bigPlays = DATA.bigPlays || [];
+  bigPlays.forEach(function(p){
     addMarker(p.frame, "Big Play: +" + p.delta.toFixed(1) + " · " + p.player + " (" + p.team + ")");
   });
   if (DATA.weekWinning){
     addMarker(DATA.weekWinning.frame, "Week-Winning Play: " + DATA.weekWinning.team + " passes " + DATA.weekWinning.runnerUp + "'s final score for good", "winning");
+  }
+
+  // The legend entries double as jump shortcuts, matching the "(click to
+  // jump)" text: "Big play" jumps to the single biggest play of the week
+  // (bigPlays is already sorted by delta, descending); "Week-winning play"
+  // jumps to that specific moment. Neither is clickable if the week has
+  // no such moment yet (e.g. early in the game).
+  var legendBigPlay = document.getElementById("legendBigPlay");
+  if (bigPlays.length){
+    legendBigPlay.addEventListener("click", function(){ jumpTo(bigPlays[0].frame); });
+  } else {
+    legendBigPlay.classList.remove("clickable");
+  }
+  var legendWeekWinning = document.getElementById("legendWeekWinning");
+  if (DATA.weekWinning){
+    legendWeekWinning.addEventListener("click", function(){ jumpTo(DATA.weekWinning.frame); });
+  } else {
+    legendWeekWinning.classList.remove("clickable");
   }
 
   var current = frames.length - 1;

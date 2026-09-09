@@ -221,6 +221,7 @@ TEMPLATE = r"""<!doctype html>
   .race-legend .swatch{ width:13px; height:9px; border-radius:2px; background:var(--ink-muted); }
   .race-legend .swatch.proj{ opacity:0.32; }
   .race-legend .swatch.dot{ width:9px; height:9px; border-radius:50%; }
+  .race-legend .swatch.star{ width:11px; height:11px; background:var(--winner); clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
   .meta{ font-size:0.8rem; color:var(--ink-muted); margin-top:1rem; line-height:1.6; }
   footer{ margin-top:2.5rem; font-size:0.8rem; color:var(--ink-muted); }
 
@@ -234,7 +235,7 @@ TEMPLATE = r"""<!doctype html>
   .scrub-markers{ position:absolute; left:0; right:0; top:50%; height:0; pointer-events:none; }
   .scrub-marker{ position:absolute; top:0; transform:translate(-50%,-50%); width:8px; height:8px; border-radius:50%; background:var(--live); border:1.5px solid var(--surface-raised); cursor:pointer; pointer-events:auto; z-index:1; }
   .scrub-marker:hover{ transform:translate(-50%,-50%) scale(1.4); }
-  .scrub-marker.winning{ width:12px; height:12px; background:var(--winner); z-index:2; }
+  .scrub-marker.winning{ width:15px; height:15px; background:var(--winner); border:none; border-radius:0; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); filter: drop-shadow(0 0 1px var(--surface-raised)); z-index:2; }
 </style>
 </head>
 <body>
@@ -261,7 +262,7 @@ TEMPLATE = r"""<!doctype html>
       <span class="item"><span class="swatch"></span>Actual points</span>
       <span class="item"><span class="swatch proj"></span>Live-projected final</span>
       <span class="item"><span class="swatch dot" style="background:var(--live)"></span>Big play (click to jump)</span>
-      <span class="item"><span class="swatch dot" style="background:var(--winner)"></span>Week-winning play</span>
+      <span class="item"><span class="swatch star"></span>Week-winning play</span>
     </div>
   </div>
   <p class="meta">Teams are ranked by live-projected final (the pale bar), not actual points banked so far — a team with a big head start from players already done can still sit below one with more real upside left on the field. Rebuilt automatically from Sleeper API snapshots polled every few minutes during game windows. Opens showing the latest snapshot — drag the scrubber back to replay how the day got there. Reload for the newest data; this page doesn't auto-refresh itself.</p>
@@ -393,10 +394,10 @@ TEMPLATE = r"""<!doctype html>
     markersEl.appendChild(m);
   }
   (DATA.bigPlays || []).forEach(function(p){
-    addMarker(p.frame, "Big play: +" + p.delta.toFixed(1) + " · " + p.player + " (" + p.team + ")");
+    addMarker(p.frame, "Big Play: +" + p.delta.toFixed(1) + " · " + p.player + " (" + p.team + ")");
   });
   if (DATA.weekWinning){
-    addMarker(DATA.weekWinning.frame, "Week-winning play: " + DATA.weekWinning.team + " passes " + DATA.weekWinning.runnerUp + "'s final score for good", "winning");
+    addMarker(DATA.weekWinning.frame, "Week-Winning Play: " + DATA.weekWinning.team + " passes " + DATA.weekWinning.runnerUp + "'s final score for good", "winning");
   }
 
   var current = frames.length - 1;

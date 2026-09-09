@@ -59,21 +59,26 @@ def get_matchups(league_id, week):
 
 def get_projections(season, week, season_type="regular"):
     """
-    Bulk pre-game projections for every skill-position player in a given week.
-    Undocumented endpoint, confirmed working as of 2026-08-28. Returns a dict
-    of player_id -> raw stat-category projections (yards, TDs, receptions...),
-    NOT a single point total — we score it ourselves with the league's own
+    Bulk pre-game projections for every player in a given week.
+    Undocumented endpoint. The URL shape matters: season_type must be a PATH
+    SEGMENT (.../nfl/{season_type}/{season}/{week}) — the query-parameter
+    form (.../nfl/{season}/{week}?season_type=...) that an earlier version of
+    this function used looks like it works (200 OK, valid JSON) but silently
+    returns every player mapped to an empty {}, which would have made every
+    live "projected" total during games just equal the actual total with no
+    projection boost. Re-verified by direct fetch on 2026-09-08 against both
+    a completed historical week (2025 wk1) and the live 2026 wk1 slate.
+
+    The response is already a flat dict of player_id -> raw stat-category
+    projections (yards, TDs, receptions...) — NOT a list of row objects and
+    NOT a single point total. We score it ourselves with the league's own
     scoring_settings, since Sleeper's built-in pts_ppr/pts_half_ppr totals
     assume stock scoring and this league runs custom settings.
     """
-    positions = ["QB", "RB", "WR", "TE", "K", "DEF"]
-    params = [("season_type", season_type)] + [("position[]", p) for p in positions]
-    rows = _get(f"{BASE}/projections/nfl/{season}/{week}", params=params)
+    raw = _get(f"{BASE}/projections/nfl/{season_type}/{season}/{week}")
     by_player = {}
-    for row in rows:
-        pid = row.get("player_id")
-        stats = row.get("stats") or {}
-        if pid:
+    for pid, stats in (raw or {}).items():
+        if isinstance(stats, dict) and stats:
             by_player[pid] = stats
     return by_player
 

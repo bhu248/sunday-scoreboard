@@ -12,6 +12,18 @@ name: Sunday Scoreboard
 # Wed Sept 9) moved the usual Thursday opener to a Wednesday, and the
 # Wednesday line is left in place afterward in case of any other
 # schedule-shuffle Wednesday game later in the season.
+#
+# The weekly lines above recur every season since they're just "day of
+# week" — but the block below is different: it targets SPECIFIC calendar
+# dates for the 2026 season's known Friday/Saturday games (which the
+# weekly lines don't cover at all). Standard cron has no "year" field, so
+# each of these WILL fire again on the same month/day next year even
+# though next season's actual game dates will be different — these are
+# only correct for the 2026 season and should be reviewed/removed before
+# the 2027 season starts. Each date gets two lines: one for its UTC day,
+# one for the small overflow into the next UTC day (games starting late
+# evening ET can run past midnight UTC), same pattern as the SNF/MNF lines
+# above. Source: 2026 NFL schedule as published, checked 2026-09-09.
 on:
   workflow_dispatch:
     inputs:
@@ -25,6 +37,20 @@ on:
     - cron: "*/5 0-4 * * 2"    # Monday Night Football
     - cron: "*/5 0-4 * * 4"    # Wednesday night game (2026's Week 1 opener moved off Thursday — kept recurring in case of future Wednesday games)
     - cron: "*/5 0-4 * * 5"    # Thursday Night Football
+
+    # --- 2026-season-specific Friday/Saturday dates (see note above) ---
+    - cron: "*/5 20-23 27 11 *" # Black Friday: Broncos @ Steelers, Fri Nov 27, 3:00pm ET
+    - cron: "*/5 0-1 28 11 *"   #   ...overflow past midnight UTC
+    - cron: "*/5 18-23 25 12 *" # Christmas Day tripleheader, Fri Dec 25 (1:00/4:30/8:15pm ET)
+    - cron: "*/5 0-4 26 12 *"   #   ...overflow past midnight UTC
+    - cron: "*/5 22-23 19 12 *" # Week 15 Saturday doubleheader, Sat Dec 19 (5:00/8:20pm ET)
+    - cron: "*/5 0-4 20 12 *"   #   ...overflow past midnight UTC
+    - cron: "*/5 21-23 26 12 *" # Week 16 Saturday doubleheader, Sat Dec 26 (4:30/8:00pm ET) — matchups TBD (flex), date/time confirmed
+    - cron: "*/5 0-4 27 12 *"   #   ...overflow past midnight UTC
+    - cron: "*/5 21-23 2 1 *"   # Week 17 Saturday doubleheader, Sat Jan 2 2027 (4:30/8:00pm ET) — matchups TBD (flex), date/time confirmed
+    - cron: "*/5 0-4 3 1 *"     #   ...overflow past midnight UTC
+    - cron: "*/5 18-23 9 1 *"   # Week 18 Saturday tripleheader, Sat Jan 9 2027 (tentative — NFL sets exact Week 18 date/times only after Week 17)
+    - cron: "*/5 0-4 10 1 *"    #   ...overflow past midnight UTC
 
 permissions:
   contents: write

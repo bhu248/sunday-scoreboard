@@ -69,12 +69,64 @@ def render_week(week):
     used_pids = {f["pid"] for fr in frames for f in fr["flashes"]}
     player_labels = {pid: players.get(pid, pid) for pid in used_pids}
 
+    # The week's 5 biggest individual point swings, wherever they landed in
+    # the timeline — surfaced as clickable markers on the scrubber. Ranked
+    # purely by delta size across every flash, positive swings only (a
+    # costly INT or fumble isn't modeled as a "big play" here, just the
+    # exciting kind). Known simplification: two of the week's top 5 plays
+    # landing in the same 5-minute poll window will render as overlapping
+    # dots — rare enough at 5-minute polling that it isn't worth
+    # de-overlapping.
+    all_flashes = []
+    for idx, fr in enumerate(frames):
+        for fl in fr["flashes"]:
+            all_flashes.append({"frame": idx, "ts": fr["ts"], "id": fl["id"], "pid": fl["pid"], "delta": fl["delta"]})
+    all_flashes.sort(key=lambda f: f["delta"], reverse=True)
+    big_plays = [
+        {
+            "frame": f["frame"],
+            "ts": f["ts"],
+            "team": names.get(f["id"], f["id"]),
+            "player": player_labels.get(f["pid"], f["pid"]),
+            "delta": f["delta"],
+        }
+        for f in all_flashes[:5]
+    ]
+
+    # The "week-winning play": the moment the roster that finished #1 in
+    # actual points first pushed its own running actual total past the
+    # #2 finisher's FINAL actual total (not #2's running total at that
+    # moment) — the instant #1 became mathematically uncatchable, since
+    # actual points only accumulate over the course of a week and never
+    # go back down. A dead-even tie for the final score has no such
+    # moment and gets no marker.
+    final_teams = frames[-1]["teams"]
+    ranked_final = sorted(final_teams, key=lambda t: t["actual"], reverse=True)
+    week_winning = None
+    if len(ranked_final) >= 2:
+        top_id = ranked_final[0]["id"]
+        second_id = ranked_final[1]["id"]
+        second_final_actual = ranked_final[1]["actual"]
+        for idx, fr in enumerate(frames):
+            by_id = {t["id"]: t for t in fr["teams"]}
+            top_pts = by_id.get(top_id, {"actual": 0})["actual"]
+            if top_pts > second_final_actual:
+                week_winning = {
+                    "frame": idx,
+                    "ts": fr["ts"],
+                    "team": names.get(top_id, top_id),
+                    "runnerUp": names.get(second_id, second_id),
+                }
+                break
+
     payload = {
         "week": week,
         "teamNames": [names[rid] for rid in roster_ids],
         "rosterIds": roster_ids,
         "frames": frames,
         "playerLabels": player_labels,
+        "bigPlays": big_plays,
+        "weekWinning": week_winning,
     }
 
     html = TEMPLATE.replace("__PAYLOAD__", json.dumps(payload, separators=(",", ":")))
@@ -123,6 +175,7 @@ TEMPLATE = r"""<!doctype html>
     --ink:#17181a; --ink-secondary:#54544c; --ink-muted:#8b897e;
     --border:rgba(23,24,26,0.11); --accent:#1f6b3d; --accent-ink:#ffffff;
     --live:#c96a12; --live-surface:#f7ead6;
+    --winner:#a8790a;
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
@@ -131,6 +184,7 @@ TEMPLATE = r"""<!doctype html>
       --ink:#f1efe6; --ink-secondary:#c4c2b6; --ink-muted:#8b897e;
       --border:rgba(241,239,230,0.12); --accent:#4fae74; --accent-ink:#0d140f;
       --live:#f0ac3f; --live-surface:#362a15;
+      --winner:#e6b93d;
     }
   }
   :root[data-theme="dark"]{
@@ -139,6 +193,7 @@ TEMPLATE = r"""<!doctype html>
     --ink:#f1efe6; --ink-secondary:#c4c2b6; --ink-muted:#8b897e;
     --border:rgba(241,239,230,0.12); --accent:#4fae74; --accent-ink:#0d140f;
     --live:#f0ac3f; --live-surface:#362a15;
+    --winner:#e6b93d;
   }
   *{box-sizing:border-box;}
   body{ margin:0; background:var(--surface); color:var(--ink); font-family:"Public Sans",system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
@@ -165,15 +220,21 @@ TEMPLATE = r"""<!doctype html>
   .race-legend .item{ display:flex; align-items:center; gap:0.4em; }
   .race-legend .swatch{ width:13px; height:9px; border-radius:2px; background:var(--ink-muted); }
   .race-legend .swatch.proj{ opacity:0.32; }
+  .race-legend .swatch.dot{ width:9px; height:9px; border-radius:50%; }
   .meta{ font-size:0.8rem; color:var(--ink-muted); margin-top:1rem; line-height:1.6; }
   footer{ margin-top:2.5rem; font-size:0.8rem; color:var(--ink-muted); }
 
   .race-controls{ display:flex; align-items:center; gap:0.8rem; margin-top:1.1rem; padding-top:1rem; border-top:1px solid var(--border); }
   .play-btn{ width:32px; height:32px; border-radius:50%; border:1px solid var(--border); background:var(--surface-sunken); color:var(--ink); cursor:pointer; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
   .play-btn:hover{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
-  .scrub{ flex:1 1 auto; appearance:none; height:4px; border-radius:2px; background:var(--surface-sunken); outline:none; cursor:pointer; }
+  .scrub-wrap{ position:relative; flex:1 1 auto; display:flex; align-items:center; }
+  .scrub{ width:100%; appearance:none; height:4px; border-radius:2px; background:var(--surface-sunken); outline:none; cursor:pointer; }
   .scrub::-webkit-slider-thumb{ appearance:none; width:13px; height:13px; border-radius:50%; background:var(--accent); cursor:pointer; border:2px solid var(--surface-raised); }
   .scrub::-moz-range-thumb{ width:13px; height:13px; border-radius:50%; background:var(--accent); cursor:pointer; border:2px solid var(--surface-raised); }
+  .scrub-markers{ position:absolute; left:0; right:0; top:50%; height:0; pointer-events:none; }
+  .scrub-marker{ position:absolute; top:0; transform:translate(-50%,-50%); width:8px; height:8px; border-radius:50%; background:var(--live); border:1.5px solid var(--surface-raised); cursor:pointer; pointer-events:auto; z-index:1; }
+  .scrub-marker:hover{ transform:translate(-50%,-50%) scale(1.4); }
+  .scrub-marker.winning{ width:12px; height:12px; background:var(--winner); z-index:2; }
 </style>
 </head>
 <body>
@@ -191,11 +252,16 @@ TEMPLATE = r"""<!doctype html>
         <svg id="playIcon" width="12" height="12" viewBox="0 0 14 14" fill="currentColor"><path d="M2 1.5 12 7 2 12.5Z"/></svg>
         <svg id="pauseIcon" width="12" height="12" viewBox="0 0 14 14" fill="currentColor" style="display:none"><path d="M2.5 1.5h3v11h-3ZM8.5 1.5h3v11h-3Z"/></svg>
       </button>
-      <input type="range" class="scrub" id="scrub" min="0" max="0" value="0" step="1">
+      <div class="scrub-wrap">
+        <input type="range" class="scrub" id="scrub" min="0" max="0" value="0" step="1">
+        <div class="scrub-markers" id="scrubMarkers"></div>
+      </div>
     </div>
     <div class="race-legend">
       <span class="item"><span class="swatch"></span>Actual points</span>
       <span class="item"><span class="swatch proj"></span>Live-projected final</span>
+      <span class="item"><span class="swatch dot" style="background:var(--live)"></span>Big play (click to jump)</span>
+      <span class="item"><span class="swatch dot" style="background:var(--winner)"></span>Week-winning play</span>
     </div>
   </div>
   <p class="meta">Teams are ranked by live-projected final (the pale bar), not actual points banked so far — a team with a big head start from players already done can still sit below one with more real upside left on the field. Rebuilt automatically from Sleeper API snapshots polled every few minutes during game windows. Opens showing the latest snapshot — drag the scrubber back to replay how the day got there. Reload for the newest data; this page doesn't auto-refresh itself.</p>
@@ -209,6 +275,28 @@ TEMPLATE = r"""<!doctype html>
   var SERIES_DARK = __SERIES_DARK__;
   var dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
   var SERIES = dark ? SERIES_DARK : SERIES_LIGHT;
+
+  // Chronological context label ("Sunday 1 PM Slate", "Monday Night
+  // Football", ...) derived purely from each frame's ET day/hour — a
+  // friendly approximation of the real broadcast windows, not a lookup
+  // against the actual NFL schedule.
+  function slateLabel(d){
+    var parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", hour12: false }).formatToParts(d);
+    var weekday = "", hour = 0;
+    parts.forEach(function(p){
+      if (p.type === "weekday") weekday = p.value;
+      if (p.type === "hour") hour = parseInt(p.value, 10);
+    });
+    if (hour === 24) hour = 0;
+    if (weekday === "Thu") return "Thursday Night Football";
+    if (weekday === "Fri") return hour < 18 ? "Friday Afternoon Football" : "Friday Night Football";
+    if (weekday === "Sat") return hour < 18 ? "Saturday Afternoon Football" : "Saturday Night Football";
+    if (weekday === "Sun") return hour < 16 ? "Sunday 1 PM Slate" : (hour < 20 ? "Sunday 4:25 PM Slate" : "Sunday Night Football");
+    if (weekday === "Mon") return "Monday Night Football";
+    if (weekday === "Tue") return "Tuesday Night Football";
+    if (weekday === "Wed") return "Wednesday Night Football";
+    return "";
+  }
 
   var N = DATA.rosterIds.length;
   var frames = DATA.frames;
@@ -279,11 +367,37 @@ TEMPLATE = r"""<!doctype html>
     });
 
     var d = new Date(f.ts);
-    document.getElementById("clockLabel").textContent = d.toLocaleString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit", month: "short", day: "numeric" }) + " ET";
+    var when = d.toLocaleString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit", month: "short", day: "numeric" });
+    document.getElementById("clockLabel").textContent = when + " ET · " + slateLabel(d);
   }
 
   var scrub = document.getElementById("scrub");
   scrub.max = frames.length - 1;
+
+  // Clickable markers for this week's 5 biggest plays + the week-winning
+  // play, positioned along the scrubber by frame index.
+  var markersEl = document.getElementById("scrubMarkers");
+  function pctForFrame(idx){ return frames.length > 1 ? (idx / (frames.length - 1)) * 100 : 0; }
+  function addMarker(frameIdx, title, cls){
+    var m = document.createElement("div");
+    m.className = "scrub-marker" + (cls ? " " + cls : "");
+    m.style.left = pctForFrame(frameIdx) + "%";
+    m.title = title;
+    m.addEventListener("click", function(){
+      setPlaying(false);
+      clearInterval(timer);
+      current = frameIdx;
+      scrub.value = frameIdx;
+      render(frameIdx);
+    });
+    markersEl.appendChild(m);
+  }
+  (DATA.bigPlays || []).forEach(function(p){
+    addMarker(p.frame, "Big play: +" + p.delta.toFixed(1) + " · " + p.player + " (" + p.team + ")");
+  });
+  if (DATA.weekWinning){
+    addMarker(DATA.weekWinning.frame, "Week-winning play: " + DATA.weekWinning.team + " passes " + DATA.weekWinning.runnerUp + "'s final score for good", "winning");
+  }
 
   var current = frames.length - 1;
   var playing = false;

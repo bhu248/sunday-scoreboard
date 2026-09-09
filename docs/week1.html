@@ -60,6 +60,7 @@
   .race-legend .swatch{ width:13px; height:9px; border-radius:2px; background:var(--ink-muted); }
   .race-legend .swatch.proj{ opacity:0.32; }
   .race-legend .swatch.dot{ width:9px; height:9px; border-radius:50%; }
+  .race-legend .swatch.star{ width:11px; height:11px; background:var(--winner); clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
   .meta{ font-size:0.8rem; color:var(--ink-muted); margin-top:1rem; line-height:1.6; }
   footer{ margin-top:2.5rem; font-size:0.8rem; color:var(--ink-muted); }
 
@@ -73,7 +74,7 @@
   .scrub-markers{ position:absolute; left:0; right:0; top:50%; height:0; pointer-events:none; }
   .scrub-marker{ position:absolute; top:0; transform:translate(-50%,-50%); width:8px; height:8px; border-radius:50%; background:var(--live); border:1.5px solid var(--surface-raised); cursor:pointer; pointer-events:auto; z-index:1; }
   .scrub-marker:hover{ transform:translate(-50%,-50%) scale(1.4); }
-  .scrub-marker.winning{ width:12px; height:12px; background:var(--winner); z-index:2; }
+  .scrub-marker.winning{ width:15px; height:15px; background:var(--winner); border:none; border-radius:0; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); filter: drop-shadow(0 0 1px var(--surface-raised)); z-index:2; }
 </style>
 </head>
 <body>
@@ -83,7 +84,7 @@
   <div class="race-card">
     <div class="race-head">
       <span class="mono" id="clockLabel" style="font-size:0.9rem;font-weight:600;"></span>
-      <span class="live-badge"><span class="dot"></span>Updated 2026-09-09T01:48:24Z UTC</span>
+      <span class="live-badge"><span class="dot"></span>Updated 2026-09-09T23:38:43Z UTC</span>
     </div>
     <div class="race-track" id="raceTrack"></div>
     <div class="race-controls">
@@ -100,7 +101,7 @@
       <span class="item"><span class="swatch"></span>Actual points</span>
       <span class="item"><span class="swatch proj"></span>Live-projected final</span>
       <span class="item"><span class="swatch dot" style="background:var(--live)"></span>Big play (click to jump)</span>
-      <span class="item"><span class="swatch dot" style="background:var(--winner)"></span>Week-winning play</span>
+      <span class="item"><span class="swatch star"></span>Week-winning play</span>
     </div>
   </div>
   <p class="meta">Teams are ranked by live-projected final (the pale bar), not actual points banked so far — a team with a big head start from players already done can still sit below one with more real upside left on the field. Rebuilt automatically from Sleeper API snapshots polled every few minutes during game windows. Opens showing the latest snapshot — drag the scrubber back to replay how the day got there. Reload for the newest data; this page doesn't auto-refresh itself.</p>
@@ -109,7 +110,7 @@
 <script>
 (function(){
   "use strict";
-  var DATA = {"week":1,"teamNames":["Pharaoh Joe","vnkn","bigBurger221","Claude Antonelli","Moik","Hakuna Matata","Chaffers Eats Ass","Volkswagen Jettas","BigWangs","lynnbear","SgtGigglesIV","Team Mehta","williamaz","Anon Akron Billionaire"],"rosterIds":["1","2","3","4","5","6","7","8","9","10","11","12","13","14"],"frames":[{"ts":"2026-09-09T00:38:40Z","teams":[{"id":"1","actual":0.0,"projected":110.17},{"id":"2","actual":0.0,"projected":114.61},{"id":"3","actual":0.0,"projected":113.87},{"id":"4","actual":0.0,"projected":102.42},{"id":"5","actual":0.0,"projected":111.47},{"id":"6","actual":0.0,"projected":112.77},{"id":"7","actual":0.0,"projected":108.18},{"id":"8","actual":0.0,"projected":106.37},{"id":"9","actual":0.0,"projected":111.12},{"id":"10","actual":0.0,"projected":115.92},{"id":"11","actual":0.0,"projected":113.42},{"id":"12","actual":0.0,"projected":112.07},{"id":"13","actual":0.0,"projected":103.59},{"id":"14","actual":0.0,"projected":120.53}],"flashes":[]},{"ts":"2026-09-09T01:48:24Z","teams":[{"id":"1","actual":0.0,"projected":110.17},{"id":"2","actual":0.0,"projected":114.61},{"id":"3","actual":0.0,"projected":113.87},{"id":"4","actual":0.0,"projected":102.42},{"id":"5","actual":0.0,"projected":111.47},{"id":"6","actual":0.0,"projected":112.77},{"id":"7","actual":0.0,"projected":108.18},{"id":"8","actual":0.0,"projected":112.51},{"id":"9","actual":0.0,"projected":111.12},{"id":"10","actual":0.0,"projected":115.92},{"id":"11","actual":0.0,"projected":113.42},{"id":"12","actual":0.0,"projected":112.07},{"id":"13","actual":0.0,"projected":103.59},{"id":"14","actual":0.0,"projected":120.53}],"flashes":[]}],"playerLabels":{},"bigPlays":[],"weekWinning":null};
+  var DATA = {"week":1,"teamNames":["Pharaoh Joe","vnkn","bigBurger221","Claude Antonelli","Moik","Hakuna Matata","Chaffers Eats Ass","Volkswagen Jettas","BigWangs","lynnbear","SgtGigglesIV","Team Mehta","williamaz","Anon Akron Billionaire"],"rosterIds":["1","2","3","4","5","6","7","8","9","10","11","12","13","14"],"frames":[{"ts":"2026-09-09T00:38:40Z","teams":[{"id":"1","actual":0.0,"projected":110.17},{"id":"2","actual":0.0,"projected":114.61},{"id":"3","actual":0.0,"projected":113.87},{"id":"4","actual":0.0,"projected":102.42},{"id":"5","actual":0.0,"projected":111.47},{"id":"6","actual":0.0,"projected":112.77},{"id":"7","actual":0.0,"projected":108.18},{"id":"8","actual":0.0,"projected":106.37},{"id":"9","actual":0.0,"projected":111.12},{"id":"10","actual":0.0,"projected":115.92},{"id":"11","actual":0.0,"projected":113.42},{"id":"12","actual":0.0,"projected":112.07},{"id":"13","actual":0.0,"projected":103.59},{"id":"14","actual":0.0,"projected":120.53}],"flashes":[]},{"ts":"2026-09-09T01:48:24Z","teams":[{"id":"1","actual":0.0,"projected":110.17},{"id":"2","actual":0.0,"projected":114.61},{"id":"3","actual":0.0,"projected":113.87},{"id":"4","actual":0.0,"projected":102.42},{"id":"5","actual":0.0,"projected":111.47},{"id":"6","actual":0.0,"projected":112.77},{"id":"7","actual":0.0,"projected":108.18},{"id":"8","actual":0.0,"projected":112.51},{"id":"9","actual":0.0,"projected":111.12},{"id":"10","actual":0.0,"projected":115.92},{"id":"11","actual":0.0,"projected":113.42},{"id":"12","actual":0.0,"projected":112.07},{"id":"13","actual":0.0,"projected":103.59},{"id":"14","actual":0.0,"projected":120.53}],"flashes":[]},{"ts":"2026-09-09T23:38:43Z","teams":[{"id":"1","actual":0.0,"projected":111.24},{"id":"2","actual":0.0,"projected":114.57},{"id":"3","actual":0.0,"projected":114.88},{"id":"4","actual":0.0,"projected":102.42},{"id":"5","actual":0.0,"projected":111.47},{"id":"6","actual":0.0,"projected":112.65},{"id":"7","actual":0.0,"projected":108.18},{"id":"8","actual":0.0,"projected":112.57},{"id":"9","actual":0.0,"projected":111.12},{"id":"10","actual":0.0,"projected":115.89},{"id":"11","actual":0.0,"projected":113.42},{"id":"12","actual":0.0,"projected":112.81},{"id":"13","actual":0.0,"projected":111.78},{"id":"14","actual":0.0,"projected":116.05}],"flashes":[]}],"playerLabels":{},"bigPlays":[],"weekWinning":null};
   var SERIES_LIGHT = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
   var SERIES_DARK = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"];
   var dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -232,10 +233,10 @@
     markersEl.appendChild(m);
   }
   (DATA.bigPlays || []).forEach(function(p){
-    addMarker(p.frame, "Big play: +" + p.delta.toFixed(1) + " · " + p.player + " (" + p.team + ")");
+    addMarker(p.frame, "Big Play: +" + p.delta.toFixed(1) + " · " + p.player + " (" + p.team + ")");
   });
   if (DATA.weekWinning){
-    addMarker(DATA.weekWinning.frame, "Week-winning play: " + DATA.weekWinning.team + " passes " + DATA.weekWinning.runnerUp + "'s final score for good", "winning");
+    addMarker(DATA.weekWinning.frame, "Week-Winning Play: " + DATA.weekWinning.team + " passes " + DATA.weekWinning.runnerUp + "'s final score for good", "winning");
   }
 
   var current = frames.length - 1;

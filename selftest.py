@@ -51,6 +51,18 @@ FAKE_PROJECTIONS = {
 }
 
 FAKE_PLAYERS_CACHE = {"p1": "Fake Runner (RB)", "p2": "Fake Catcher (WR)", "p3": "Fake Thrower (QB)"}
+FAKE_PLAYER_TEAMS = {"p1": "AAA", "p2": "BBB", "p3": "CCC"}
+
+# poll #1: no ESPN game-clock data yet (simulates pregame, or an ESPN
+# hiccup) -> every team falls back to elapsed=0, so this should reduce to
+# exactly the old max(actual, pregame_projection) behavior.
+FAKE_PROGRESS_1 = {}
+# poll #2: p1's team (AAA) is at halftime, p2's team (BBB) has finished —
+# each player's "upside" above their actual should decay accordingly. p3's
+# team (CCC) is ALSO well into its game (0.9) even though p3 personally is
+# still scoreless -- this is the case that must NOT decay: a quiet player
+# isn't evidence their opportunity is gone, just that it hasn't arrived yet.
+FAKE_PROGRESS_2 = {"AAA": 0.5, "BBB": 1.0, "CCC": 0.9}
 
 
 def install_mocks():
@@ -60,8 +72,11 @@ def install_mocks():
     common.get_rosters = lambda league_id: FAKE_ROSTERS
     common.get_projections = lambda season, week, season_type="regular": FAKE_PROJECTIONS
     common.load_players_cache = lambda: FAKE_PLAYERS_CACHE
+    common.load_player_teams = lambda: FAKE_PLAYER_TEAMS
     common._matchup_seq = iter([FAKE_MATCHUPS_1, FAKE_MATCHUPS_2])
     common.get_matchups = lambda league_id, week: next(common._matchup_seq)
+    common._progress_seq = iter([FAKE_PROGRESS_1, FAKE_PROGRESS_2])
+    common.team_game_progress = lambda season, week, season_type="regular": next(common._progress_seq)
 
 
 def main():
@@ -88,13 +103,32 @@ def main():
     assert len(snaps) == 2, f"expected 2 snapshots, got {len(snaps)}"
     r1 = snaps[0]["rosters"]["1"]
     assert r1["actual"] == 6.0, r1
-    assert r1["projected"] == 13.0, r1   # 6.0 actual + p1's 7.0 projection (p1 hadn't scored yet)
+    # no ESPN game-clock data yet -> elapsed=0 for every team -> reduces to
+    # the old max(actual, pregame_projection): max(0,7)=7 for p1, max(6,7)=7 for p2
+    assert r1["projected"] == 14.0, r1
     r2 = snaps[1]["rosters"]["1"]
     assert r2["actual"] == 12.6, r2
-    assert r2["projected"] == 12.6, r2   # p1 has now scored -> its projection drops out, matches actual
+    # p1 (team AAA, at halftime/elapsed=0.5): actual 6.6 + (7-6.6)*0.5 = 6.8
+    # p2 (team BBB, game over/elapsed=1.0):   actual 6.0 + (7-6.0)*0.0 = 6.0
+    # 6.8 + 6.0 = 12.8 -- the live decay actually moves the number now,
+    # instead of staying frozen at 14.0 all game like the old pinned model.
+    assert r2["projected"] == 12.8, r2
+
+    # p3 (roster 2) never scores in either poll, even though by poll #2
+    # their team's game is 90% elapsed -- projected must stay pinned at the
+    # full 16.0 pre-game projection both times, NOT decay toward 0 just
+    # because time passed. This is the exact bug just fixed: every roster's
+    # projected total was cratering together regardless of whether that
+    # roster had scored anything.
+    p3_poll1 = snaps[0]["rosters"]["2"]
+    p3_poll2 = snaps[1]["rosters"]["2"]
+    assert p3_poll1["actual"] == 0.0 and p3_poll1["projected"] == 16.0, p3_poll1
+    assert p3_poll2["actual"] == 0.0 and p3_poll2["projected"] == 16.0, p3_poll2
+
     print("poll.py logic: PASS")
     print("  snapshot 1, roster 1:", r1)
     print("  snapshot 2, roster 1:", r2)
+    print("  snapshot 2, roster 2 (scoreless all game):", p3_poll2)
 
     import render
     render.LEAGUE_ID = TEST_LEAGUE

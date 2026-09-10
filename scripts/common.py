@@ -12,6 +12,7 @@ missing or more than 20 hours old.
 
 import json
 import os
+import sys
 import time
 from datetime import datetime, timezone
 
@@ -21,6 +22,16 @@ BASE = "https://api.sleeper.app/v1"
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 PLAYERS_CACHE = os.path.join(DATA_DIR, "players_cache.json")
 PLAYERS_CACHE_MAX_AGE_SEC = 20 * 60 * 60  # 20 hours
+
+# ESPN's public, unauthenticated scoreboard feed. This is the ONLY
+# non-Sleeper external call in the project, and it exists solely to read
+# each game's live clock (period + displayClock) so poll.py can tell how
+# far into a player's own game it is — see team_game_progress() below for
+# why. We never read scores or stats from this feed; Sleeper stays the
+# sole source of truth for every point total.
+ESPN_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
+ESPN_SEASON_TYPE = {"pre": 1, "regular": 2, "post": 3}
+ESPN_TEAM_ALIAS = {"WSH": "WAS"}  # ESPN's abbreviation -> Sleeper's, where they differ
 
 _session = requests.Session()
 _session.headers.update({"User-Agent": "sunday-scoreboard/1.0 (+github actions)"})
@@ -83,6 +94,88 @@ def get_projections(season, week, season_type="regular"):
     return by_player
 
 
+def _elapsed_fraction(period, display_clock, status_name):
+    """
+    0.0 (hasn't kicked off) to 1.0 (over) — how much of an NFL game's 4
+    regulation quarters have elapsed, from ESPN's scoreboard status fields.
+    Overtime (period 5+) is treated as fully elapsed: regular-season OT is
+    a single short (10-minute) period, so by the time a game gets there its
+    pre-game projection has essentially nothing meaningful left to give.
+    """
+    status_name = status_name or ""
+    if status_name in ("STATUS_FINAL", "STATUS_FULL_TIME"):
+        return 1.0
+    if not period or period <= 0 or status_name in ("STATUS_SCHEDULED", "STATUS_POSTPONED", "STATUS_CANCELED"):
+        return 0.0
+    if period >= 5:
+        return 1.0
+    try:
+        mins, secs = (display_clock or "0:00").split(":")
+        remaining_sec = int(mins) * 60 + int(secs)
+    except (ValueError, AttributeError):
+        remaining_sec = 0
+    quarter_sec = 15 * 60
+    elapsed_sec = (period - 1) * quarter_sec + (quarter_sec - remaining_sec)
+    return max(0.0, min(elapsed_sec / (4 * quarter_sec), 1.0))
+
+
+def get_scoreboard(season, week, season_type="regular"):
+    """Raw ESPN scoreboard response for one NFL week. See ESPN_SCOREBOARD_URL."""
+    params = {
+        "week": week,
+        "seasontype": ESPN_SEASON_TYPE.get(season_type, 2),
+        "year": season,
+    }
+    return _get(ESPN_SCOREBOARD_URL, params=params)
+
+
+def team_game_progress(season, week, season_type="regular"):
+    """
+    NFL team abbreviation -> fraction (0.0-1.0) of THAT TEAM'S OWN game this
+    week that has elapsed so far, e.g. {"SEA": 0.0, "KC": 0.62, ...}.
+
+    Why this exists: Sleeper's public projections endpoint
+    (get_projections, above) only ever returns one static pre-game number
+    per player for the whole week — confirmed both by Sleeper's own docs
+    (no live-projection endpoint is documented or exists) and by this
+    project's real Week 1 production data: a roster whose players hadn't
+    recorded a single stat held an EXACTLY unchanged projected total for
+    over an hour of live play. There is no Sleeper feed of a live,
+    per-player projection to fetch.
+
+    So poll.py builds the "live" behavior itself: each player's remaining,
+    not-yet-banked projection fades out over the course of their specific
+    game, using ESPN's public scoreboard purely to read the clock. See
+    poll.compute_projected_total for how this fraction gets used.
+
+    Returns {} (every team treated as "not started") on any fetch/parse
+    failure, so a flaky ESPN response degrades one poll's projected totals
+    back to the old full-projection behavior rather than breaking the poll
+    entirely or crashing the workflow.
+    """
+    try:
+        data = get_scoreboard(season, week, season_type)
+    except Exception as exc:  # noqa: BLE001 - a flaky third-party feed should never sink a poll
+        print(f"team_game_progress: ESPN scoreboard fetch failed (non-fatal): {exc}", file=sys.stderr)
+        return {}
+
+    progress = {}
+    for event in (data or {}).get("events", []):
+        for comp in event.get("competitions") or []:
+            status = comp.get("status") or {}
+            status_type = status.get("type") or {}
+            frac = _elapsed_fraction(
+                status.get("period"), status.get("displayClock"), status_type.get("name"),
+            )
+            for competitor in comp.get("competitors") or []:
+                abbr = ((competitor.get("team") or {}).get("abbreviation") or "").upper()
+                if not abbr:
+                    continue
+                abbr = ESPN_TEAM_ALIAS.get(abbr, abbr)
+                progress[abbr] = frac
+    return progress
+
+
 def score_stats(stats, scoring_settings):
     """
     Generic dot product: sum(stat_value * points_per_stat) over whatever
@@ -111,27 +204,10 @@ def team_names(league_id):
     return names
 
 
-def load_players_cache():
-    """
-    player_id -> "First Last (POS)", refreshed at most once a day per
-    Sleeper's own guidance for this endpoint. Used only to label flashes
-    ("+9.6 — J. Smith (RB)") — never called on the hot polling path.
-
-    The staleness check is based on a timestamp stored *inside* the cache
-    file, not the file's mtime — this cache gets committed to the repo, and
-    `git checkout` stamps every file with the current time regardless of
-    when it was actually written, so an mtime check would never see it as
-    stale once it's under version control.
-    """
-    if os.path.exists(PLAYERS_CACHE):
-        with open(PLAYERS_CACHE, "r") as f:
-            cached = json.load(f)
-        fetched_at = cached.get("fetched_at", 0)
-        if time.time() - fetched_at < PLAYERS_CACHE_MAX_AGE_SEC:
-            return cached["players"]
-
+def _refresh_players_cache():
     raw = _get(f"{BASE}/players/nfl")
-    slim = {}
+    labels = {}
+    teams = {}
     for pid, p in raw.items():
         if not isinstance(p, dict):
             continue
@@ -144,11 +220,58 @@ def load_players_cache():
             label += f" ({pos})"
         elif team:
             label += f" ({team})"
-        slim[pid] = label
+        labels[pid] = label
+        if team:
+            teams[pid] = team
+    cache = {"fetched_at": time.time(), "players": labels, "teams": teams}
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(PLAYERS_CACHE, "w") as f:
-        json.dump({"fetched_at": time.time(), "players": slim}, f)
-    return slim
+        json.dump(cache, f)
+    return cache
+
+
+def _load_players_cache_raw():
+    """
+    Shared on-disk cache of Sleeper's ~5MB player dump, refreshed at most
+    once a day per Sleeper's own guidance for this endpoint. Holds both the
+    human-readable label used for flash text ("J. Smith (RB)") and each
+    player's current team — the team is needed by poll.py to look up that
+    team's live game progress (see team_game_progress) for projected-total
+    blending.
+
+    The staleness check is based on a timestamp stored *inside* the cache
+    file, not the file's mtime — this cache gets committed to the repo, and
+    `git checkout` stamps every file with the current time regardless of
+    when it was actually written, so an mtime check would never see it as
+    stale once it's under version control.
+
+    A cache written before the "teams" field existed is treated as stale
+    too, so it gets one forced refresh instead of silently running forever
+    with no team data.
+    """
+    if os.path.exists(PLAYERS_CACHE):
+        with open(PLAYERS_CACHE, "r") as f:
+            cached = json.load(f)
+        fetched_at = cached.get("fetched_at", 0)
+        if "teams" in cached and time.time() - fetched_at < PLAYERS_CACHE_MAX_AGE_SEC:
+            return cached
+    return _refresh_players_cache()
+
+
+def load_players_cache():
+    """player_id -> "First Last (POS)". Used only to label flashes — never called on the hot polling path."""
+    return _load_players_cache_raw()["players"]
+
+
+def load_player_teams():
+    """
+    player_id -> current NFL team abbreviation, e.g. "SEA". A team
+    defense/special-teams starter slot is keyed directly by the team's own
+    abbreviation in Sleeper's matchup data (there's no separate "player" for
+    a DST) — callers looking up a starter's team should do
+    `players_team.get(pid, pid)` so that case just resolves to itself.
+    """
+    return _load_players_cache_raw()["teams"]
 
 
 def week_data_path(week):

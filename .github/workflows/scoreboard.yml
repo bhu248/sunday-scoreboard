@@ -32,25 +32,25 @@ on:
         type: boolean
         default: false
   schedule:
-    - cron: "*/5 17-23 * * 0"  # Sunday daytime + evening (main slate)
-    - cron: "*/5 0-4 * * 1"    # Sunday Night Football, after midnight UTC
-    - cron: "*/5 0-4 * * 2"    # Monday Night Football
-    - cron: "*/5 0-4 * * 4"    # Wednesday night game (2026's Week 1 opener moved off Thursday — kept recurring in case of future Wednesday games)
-    - cron: "*/5 0-4 * * 5"    # Thursday Night Football
+    - cron: "2-57/5 17-23 * * 0"  # Sunday daytime + evening (main slate)
+    - cron: "2-57/5 0-4 * * 1"    # Sunday Night Football, after midnight UTC
+    - cron: "2-57/5 0-4 * * 2"    # Monday Night Football
+    - cron: "2-57/5 0-4 * * 4"    # Wednesday night game (2026's Week 1 opener moved off Thursday — kept recurring in case of future Wednesday games)
+    - cron: "2-57/5 0-4 * * 5"    # Thursday Night Football
 
     # --- 2026-season-specific Friday/Saturday dates (see note above) ---
-    - cron: "*/5 20-23 27 11 *" # Black Friday: Broncos @ Steelers, Fri Nov 27, 3:00pm ET
-    - cron: "*/5 0-1 28 11 *"   #   ...overflow past midnight UTC
-    - cron: "*/5 18-23 25 12 *" # Christmas Day tripleheader, Fri Dec 25 (1:00/4:30/8:15pm ET)
-    - cron: "*/5 0-4 26 12 *"   #   ...overflow past midnight UTC
-    - cron: "*/5 22-23 19 12 *" # Week 15 Saturday doubleheader, Sat Dec 19 (5:00/8:20pm ET)
-    - cron: "*/5 0-4 20 12 *"   #   ...overflow past midnight UTC
-    - cron: "*/5 21-23 26 12 *" # Week 16 Saturday doubleheader, Sat Dec 26 (4:30/8:00pm ET) — matchups TBD (flex), date/time confirmed
-    - cron: "*/5 0-4 27 12 *"   #   ...overflow past midnight UTC
-    - cron: "*/5 21-23 2 1 *"   # Week 17 Saturday doubleheader, Sat Jan 2 2027 (4:30/8:00pm ET) — matchups TBD (flex), date/time confirmed
-    - cron: "*/5 0-4 3 1 *"     #   ...overflow past midnight UTC
-    - cron: "*/5 18-23 9 1 *"   # Week 18 Saturday tripleheader, Sat Jan 9 2027 (tentative — NFL sets exact Week 18 date/times only after Week 17)
-    - cron: "*/5 0-4 10 1 *"    #   ...overflow past midnight UTC
+    - cron: "2-57/5 20-23 27 11 *" # Black Friday: Broncos @ Steelers, Fri Nov 27, 3:00pm ET
+    - cron: "2-57/5 0-1 28 11 *"   #   ...overflow past midnight UTC
+    - cron: "2-57/5 18-23 25 12 *" # Christmas Day tripleheader, Fri Dec 25 (1:00/4:30/8:15pm ET)
+    - cron: "2-57/5 0-4 26 12 *"   #   ...overflow past midnight UTC
+    - cron: "2-57/5 22-23 19 12 *" # Week 15 Saturday doubleheader, Sat Dec 19 (5:00/8:20pm ET)
+    - cron: "2-57/5 0-4 20 12 *"   #   ...overflow past midnight UTC
+    - cron: "2-57/5 21-23 26 12 *" # Week 16 Saturday doubleheader, Sat Dec 26 (4:30/8:00pm ET) — matchups TBD (flex), date/time confirmed
+    - cron: "2-57/5 0-4 27 12 *"   #   ...overflow past midnight UTC
+    - cron: "2-57/5 21-23 2 1 *"   # Week 17 Saturday doubleheader, Sat Jan 2 2027 (4:30/8:00pm ET) — matchups TBD (flex), date/time confirmed
+    - cron: "2-57/5 0-4 3 1 *"     #   ...overflow past midnight UTC
+    - cron: "2-57/5 18-23 9 1 *"   # Week 18 Saturday tripleheader, Sat Jan 9 2027 (tentative — NFL sets exact Week 18 date/times only after Week 17)
+    - cron: "2-57/5 0-4 10 1 *"    #   ...overflow past midnight UTC
 
 permissions:
   contents: write

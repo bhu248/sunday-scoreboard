@@ -23,7 +23,7 @@ name: Sunday Scoreboard
 # the 2027 season starts. Each date gets two lines: one for its UTC day,
 # one for the small overflow into the next UTC day (games starting late
 # evening ET can run past midnight UTC), same pattern as the SNF/MNF lines
-# above. Source: 2026 NFL schedule as published, checked 2026-09-09.
+# above. Source: 2026 NFL schedule as published, checked 2026-09-09. 
 on:
   workflow_dispatch:
     inputs:

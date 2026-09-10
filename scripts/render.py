@@ -207,13 +207,17 @@ TEMPLATE = r"""<!doctype html>
   .race-head{ display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1rem; flex-wrap:wrap; }
   .live-badge{ display:inline-flex; align-items:center; gap:0.4em; background:var(--live-surface); color:var(--live); font-size:0.72rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; padding:0.3em 0.65em; border-radius:100px; }
   .live-badge .dot{ width:6px; height:6px; border-radius:50%; background:var(--live); }
-  .race-track{ position:relative; }
+  .race-track{ position:relative; margin-bottom:1.6rem; }
+  .race-gridlines{ position:absolute; inset:0; pointer-events:none; }
+  .race-gridline{ position:absolute; top:0; bottom:0; width:1px; background:var(--border); }
+  .race-gridline-label{ position:absolute; top:100%; margin-top:0.4rem; transform:translateX(-50%); font-size:0.68rem; color:var(--ink-muted); white-space:nowrap; }
   .race-row{ position:absolute; left:0; right:0; height:34px; transition: top 450ms cubic-bezier(.4,0,.2,1); display:flex; align-items:center; gap:0.6rem; }
   .race-name{ width:150px; flex:0 0 auto; font-size:0.78rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right; }
   .race-bar-track{ flex:1 1 auto; position:relative; height:20px; }
   .race-bar-proj{ position:absolute; left:0; top:0; height:100%; border-radius:3px; opacity:0.3; transition: width 450ms cubic-bezier(.4,0,.2,1); }
   .race-bar{ position:absolute; left:0; top:0; height:100%; border-radius:3px; min-width:3px; transition: width 450ms cubic-bezier(.4,0,.2,1); }
   .race-score{ position:absolute; top:50%; transform:translateY(-50%); font-size:0.76rem; font-weight:600; white-space:nowrap; transition: left 450ms; }
+  .race-score-proj{ position:absolute; top:50%; transform:translateY(-50%); font-size:0.7rem; font-weight:600; color:var(--ink-muted); white-space:nowrap; transition: left 450ms; }
   .race-flash{ position:absolute; top:-1.05rem; font-size:0.68rem; font-weight:600; color:var(--live); opacity:0; white-space:nowrap; transition:opacity 350ms ease; }
   .race-flash.show{ opacity:1; }
   .race-legend{ display:flex; gap:1.2rem; font-size:0.76rem; color:var(--ink-secondary); margin-top:1rem; flex-wrap:wrap; }
@@ -313,6 +317,11 @@ TEMPLATE = r"""<!doctype html>
   var rowH = 34 + 6;
   track.style.height = (N * rowH - 6) + "px";
 
+  // Drawn first so it paints behind the bar rows appended below.
+  var gridlinesEl = document.createElement("div");
+  gridlinesEl.className = "race-gridlines";
+  track.appendChild(gridlinesEl);
+
   var rows = DATA.rosterIds.map(function(rid, i){
     var row = document.createElement("div");
     row.className = "race-row";
@@ -324,6 +333,7 @@ TEMPLATE = r"""<!doctype html>
         '<div class="race-bar" style="background:' + color + '"></div>' +
         '<div class="race-flash"></div>' +
         '<div class="race-score mono"></div>' +
+        '<div class="race-score-proj mono"></div>' +
       '</div>';
     track.appendChild(row);
     return {
@@ -332,9 +342,65 @@ TEMPLATE = r"""<!doctype html>
       barProj: row.querySelector(".race-bar-proj"),
       bar: row.querySelector(".race-bar"),
       score: row.querySelector(".race-score"),
+      scoreProj: row.querySelector(".race-score-proj"),
       flash: row.querySelector(".race-flash")
     };
   });
+
+  // Round a raw axis step up to a "nice" 1/2/5 * 10^n value, the standard
+  // trick for picking chart tick spacing that reads as round numbers
+  // (e.g. 20/40/60, never 17/34/51).
+  function niceStep(raw){
+    var mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    var norm = raw / mag;
+    var niceNorm = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10;
+    return niceNorm * mag;
+  }
+  function computeTicks(maxVal, targetCount){
+    var step = niceStep(maxVal / targetCount);
+    var ticks = [];
+    for (var v = step; v <= maxVal + 1e-6; v += step) ticks.push(Math.round(v * 10) / 10);
+    return ticks;
+  }
+
+  // Positions the point-value axis under the bars by measuring where the
+  // first row's own bar-track actually sits — every row shares the same
+  // flex sizing (fixed-width team name + flexible bar area), so one
+  // measurement lines up with all of them, and re-measuring on resize
+  // keeps it aligned as the page reflows.
+  function layoutAxis(){
+    gridlinesEl.innerHTML = "";
+    if (!rows.length) return;
+    var trackRect = track.getBoundingClientRect();
+    var barRect = rows[0].bar.parentNode.getBoundingClientRect();
+    var left = barRect.left - trackRect.left;
+    var width = barRect.width;
+    computeTicks(maxScore, 7).forEach(function(v){
+      var pct = v / maxScore;
+      if (pct > 1.001) return;
+      var x = left + pct * width;
+      var line = document.createElement("div");
+      line.className = "race-gridline";
+      line.style.left = x + "px";
+      gridlinesEl.appendChild(line);
+      var label = document.createElement("div");
+      label.className = "race-gridline-label";
+      label.style.left = x + "px";
+      label.textContent = Math.round(v);
+      gridlinesEl.appendChild(label);
+    });
+  }
+  // A plain resize listener alone can leave the axis pinned at a
+  // zero-width measurement forever: if this page first lays out while not
+  // yet visible at real size (e.g. a background tab), nothing ever fires
+  // a "resize" event once it becomes visible at the same logical window
+  // size. ResizeObserver watches the bar-track element itself, so it
+  // fires on that transition too, not just on window resizes.
+  if (window.ResizeObserver){
+    new ResizeObserver(layoutAxis).observe(rows[0].bar.parentNode);
+  } else {
+    window.addEventListener("resize", layoutAxis);
+  }
 
   function render(idx){
     var f = frames[idx];
@@ -358,6 +424,17 @@ TEMPLATE = r"""<!doctype html>
       r.barProj.style.width = pctProj + "%";
       r.score.textContent = t.actual.toFixed(1);
       r.score.style.left = "calc(" + pct + "% + 8px)";
+
+      // Only label the pale projected bar when it's actually showing
+      // meaningful upside above actual — once a team's game is over (or
+      // it just hasn't separated from actual yet) the two numbers are the
+      // same and a second identical label next to the first is just noise.
+      if (t.projected - t.actual > 0.05){
+        r.scoreProj.textContent = t.projected.toFixed(1);
+        r.scoreProj.style.left = "calc(" + pctProj + "% + 8px)";
+      } else {
+        r.scoreProj.textContent = "";
+      }
 
       var fl = f.flashes.find(function(x){ return x.id === r.id; });
       if (fl){
@@ -456,6 +533,7 @@ TEMPLATE = r"""<!doctype html>
 
   scrub.value = current;
   render(current); // show the latest snapshot by default; drag the scrubber to replay the day
+  layoutAxis();
 })();
 </script>
 </body>

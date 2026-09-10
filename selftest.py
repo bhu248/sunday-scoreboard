@@ -79,6 +79,72 @@ def install_mocks():
     common.team_game_progress = lambda season, week, season_type="regular": next(common._progress_seq)
 
 
+def test_scoring_fallback():
+    """
+    Regression test for the ESPN-dormant scoring fallback added 2026-09-10:
+    ESPN can leave a game marked STATUS_SCHEDULED (team_game_progress
+    returning {}) for hours after its real kickoff, even while that team's
+    players are already posting real stats. Decay must still kick in for a
+    team that's clearly playing, estimated from when its own players first
+    scored -- while a genuinely scoreless team must stay pinned at its full
+    pregame projection throughout, exactly like the ESPN-driven case above.
+    """
+    sandbox = tempfile.mkdtemp(prefix="scoreboard-selftest-fallback-")
+    data_dir = os.path.join(sandbox, "data")
+    os.makedirs(data_dir)
+
+    fake_state = {"season": "2026", "week": 1, "display_week": 1, "season_type": "regular"}
+    fake_matchups = [
+        {"roster_id": 1, "points": 2.0, "starters": ["q1"], "players_points": {"q1": 2.0}},
+        {"roster_id": 2, "points": 0.0, "starters": ["q2"], "players_points": {"q2": 0.0}},
+    ]
+    fake_projections = {
+        "q1": {"rush_yd": 40.0, "rush_td": 0.5},  # 7.0 projected
+        "q2": {"rec": 4.0, "rec_yd": 50.0},        # 7.0 projected
+    }
+    fake_player_teams = {"q1": "AAA", "q2": "BBB"}
+    now_seq = iter([
+        "2026-09-09T20:00:00Z",  # poll 1: q1's first-ever score, right now -> elapsed=0
+        "2026-09-09T21:45:00Z",  # poll 2: +1h45m -> half the 3h30m fallback duration -> elapsed=0.5
+        "2026-09-09T23:30:00Z",  # poll 3: +3h30m from poll 1 -> elapsed=1.0 (fully decayed)
+    ])
+
+    common.get_state = lambda: fake_state
+    common.get_league = lambda league_id: FAKE_LEAGUE
+    common.get_matchups = lambda league_id, week: fake_matchups
+    common.get_projections = lambda season, week, season_type="regular": fake_projections
+    common.load_player_teams = lambda: fake_player_teams
+    common.team_game_progress = lambda season, week, season_type="regular": {}  # ESPN permanently dormant
+    common.now_iso = lambda: next(now_seq)
+    common.DATA_DIR = data_dir
+    common.PLAYERS_CACHE = os.path.join(data_dir, "players_cache.json")
+    os.environ["LEAGUE_ID"] = TEST_LEAGUE
+
+    import poll
+    poll.LEAGUE_ID = TEST_LEAGUE
+    poll.main()
+    poll.main()
+    poll.main()
+
+    snaps = common.load_snapshots(1)
+    assert len(snaps) == 3, f"expected 3 snapshots, got {len(snaps)}"
+
+    q1_1, q1_2, q1_3 = (s["rosters"]["1"] for s in snaps)
+    assert q1_1["actual"] == 2.0 and q1_1["projected"] == 7.0, q1_1
+    assert q1_2["actual"] == 2.0 and q1_2["projected"] == 4.5, q1_2
+    assert q1_3["actual"] == 2.0 and q1_3["projected"] == 2.0, q1_3
+
+    for q2_snap in (s["rosters"]["2"] for s in snaps):
+        assert q2_snap["actual"] == 0.0 and q2_snap["projected"] == 7.0, q2_snap
+
+    print("ESPN-dormant scoring fallback: PASS")
+    print("  poll 1 (elapsed=0.0):", q1_1)
+    print("  poll 2 (elapsed=0.5):", q1_2)
+    print("  poll 3 (elapsed=1.0):", q1_3)
+
+    shutil.rmtree(sandbox)
+
+
 def main():
     # Run entirely inside a throwaway temp directory — this must NEVER touch
     # the real data/ and docs/ folders in a cloned repo, since those hold
@@ -149,6 +215,9 @@ def main():
     print("index render: PASS")
 
     shutil.rmtree(sandbox)
+
+    test_scoring_fallback()
+
     print("\nALL SELFTESTS PASSED (ran entirely in a throwaway temp dir — your real data/ and docs/ were untouched)")
 
 

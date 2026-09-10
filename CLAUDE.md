@@ -110,6 +110,24 @@ time-decay, which is correct, safe, degraded behavior, not a bug. Don't
 "fix" this without first re-checking ESPN's live status — the code is
 working as designed for a game ESPN hasn't started reporting on.
 
+**Update 2026-09-10: this is no longer purely dormant.**
+`common.estimate_scoring_fallback_progress()` now fills the gap for exactly
+this scenario: when a team's players are already posting real Sleeper stats
+but ESPN still has that team at elapsed=0 (missing or `STATUS_SCHEDULED`),
+it estimates elapsed from `(now - that team's first observed nonzero-score
+snapshot) / FALLBACK_GAME_DURATION_SEC` (a fixed 3.5h stand-in for a game's
+length), reading the fallback timestamp from this week's own
+`data/week<N>.jsonl` history. ESPN's real clock is still trusted the moment
+it actually reports one (frac > 0) for a team — the fallback only fires for
+teams ESPN is silently treating as not-yet-started. `poll.py` blends this in
+right after calling `team_game_progress()`, before `compute_projected_total`
+ever sees it, so the existing `pts > 0.0` gate (see bug #2 above) still
+applies exactly the same way regardless of which source produced `elapsed`.
+Known tradeoff: because the fallback is a fixed-duration guess rather than a
+real clock, there can be a one-time jump in a team's projected total at the
+moment ESPN's status finally catches up and takes back over. See
+`test_scoring_fallback()` in `selftest.py` for the regression coverage.
+
 ## Other known behaviors (not bugs)
 
 - **Sleeper's pregame projections can drift slightly over time**, even

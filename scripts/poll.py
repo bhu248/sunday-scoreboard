@@ -29,10 +29,12 @@ def compute_projected_total(starters, players_points, projections_by_player, sco
         remaining = max(pregame_projection - actual, 0) * (1 - elapsed)
         contribution = actual + remaining
 
-    where raw `elapsed` (0.0-1.0) comes from common.team_game_progress,
-    which reads ESPN's public scoreboard for that player's team's game
-    clock — but it only ever applies once the player has actually recorded
-    a point. A player sitting at 0 actual keeps their full, undecayed
+    where raw `elapsed` (0.0-1.0) comes from common.team_game_progress
+    (ESPN's public scoreboard for that player's team's game clock), blended
+    with common.estimate_scoring_fallback_progress for any team ESPN is
+    still reporting as not-yet-started despite its players already posting
+    real stats — see that function's docstring. Either way, `elapsed` only
+    ever applies once the player has actually recorded a point. A player sitting at 0 actual keeps their full, undecayed
     pre-game projection no matter how much wall-clock time has passed —
     "hasn't scored yet" is not evidence their opportunity is used up; it's
     just as likely their own game hasn't gotten to them yet. Without this
@@ -115,6 +117,10 @@ def main():
     projections_by_player = common.get_projections(season, week, season_type)
     players_team = common.load_player_teams()
     team_progress = common.team_game_progress(season, week, season_type)
+    now_ts = common.now_iso()
+    team_progress = common.estimate_scoring_fallback_progress(
+        team_progress, matchups, players_team, common.load_snapshots(week), now_ts
+    )
 
     rosters_out = {}
     for m in matchups:
@@ -130,7 +136,7 @@ def main():
             "players_points": {pid: players_points.get(pid, 0.0) for pid in starters if pid != "0"},
         }
 
-    snapshot = {"ts": common.now_iso(), "week": week, "rosters": rosters_out}
+    snapshot = {"ts": now_ts, "week": week, "rosters": rosters_out}
     common.append_snapshot(week, snapshot)
     print(f"[{snapshot['ts']}] week {week}: logged {len(rosters_out)} rosters.")
 

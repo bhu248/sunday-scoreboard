@@ -16,6 +16,13 @@ import sys
 import time
 from datetime import datetime, timezone
 
+# A fixed stand-in for "how long an NFL game runs end-to-end," used only by
+# estimate_scoring_fallback_progress() below when ESPN hasn't confirmed a
+# game is live yet. Real games vary, but this is just meant to turn "some
+# time has passed since this team clearly started scoring" into a rough
+# decay curve -- not to be precise.
+FALLBACK_GAME_DURATION_SEC = 3.5 * 3600
+
 import requests
 
 BASE = "https://api.sleeper.app/v1"
@@ -174,6 +181,64 @@ def team_game_progress(season, week, season_type="regular"):
                 abbr = ESPN_TEAM_ALIAS.get(abbr, abbr)
                 progress[abbr] = frac
     return progress
+
+
+def _parse_iso(ts):
+    return datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+
+
+def estimate_scoring_fallback_progress(espn_progress, matchups, players_team, history_snapshots, now_ts_iso):
+    """
+    ESPN's scoreboard has been observed to leave a game marked
+    STATUS_SCHEDULED for hours after its real kickoff (confirmed in this
+    project's own Week 1 opener, which ESPN never once reported as anything
+    but STATUS_SCHEDULED despite being live for over two hours). When that
+    happens, team_game_progress() reports elapsed=0 for that team even
+    though its players are already posting real stats in Sleeper's matchup
+    data, so compute_projected_total's decay never engages and a team's
+    projected total sits frozen at its pregame number all game.
+
+    This fills that specific gap: for any team ESPN is NOT already
+    reporting live progress for (frac <= 0, i.e. missing or STATUS_
+    SCHEDULED), find the earliest snapshot -- in this week's full history,
+    plus the in-progress poll that hasn't been saved yet -- where any of
+    that team's players had actual points > 0, and treat that moment as a
+    proxy for kickoff: elapsed = (now - that moment) / FALLBACK_GAME_
+    DURATION_SEC.
+
+    ESPN's real clock is always trusted the moment it actually reports one
+    (frac > 0) for a team -- this estimate only ever fills in for teams
+    ESPN is still silently treating as not-yet-started. Because it's a
+    fixed-duration guess rather than a real clock, there can be a one-time
+    jump when ESPN's status finally catches up and takes back over -- an
+    accepted tradeoff against leaving the number frozen for however long
+    ESPN stays silent.
+    """
+    now = _parse_iso(now_ts_iso)
+    first_score_ts = {}
+
+    def fold_in(players_points, ts):
+        for pid, pts in (players_points or {}).items():
+            if not pts or pts <= 0.0:
+                continue
+            team = players_team.get(pid, pid)
+            if team not in first_score_ts or ts < first_score_ts[team]:
+                first_score_ts[team] = ts
+
+    for snap in history_snapshots:
+        ts = _parse_iso(snap["ts"])
+        for roster in snap.get("rosters", {}).values():
+            fold_in(roster.get("players_points"), ts)
+    for m in matchups:
+        fold_in(m.get("players_points"), now)
+
+    blended = dict(espn_progress)
+    for team, first_ts in first_score_ts.items():
+        if blended.get(team, 0.0) > 0.0:
+            continue  # ESPN already has a real clock for this team -- trust it
+        elapsed_sec = (now - first_ts).total_seconds()
+        blended[team] = max(0.0, min(1.0, elapsed_sec / FALLBACK_GAME_DURATION_SEC))
+    return blended
 
 
 def score_stats(stats, scoring_settings):

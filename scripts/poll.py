@@ -25,11 +25,28 @@ def compute_projected_total(starters, players_points, projections_by_player, sco
     their actual total once their game ends, instead of staying pinned at
     a ceiling or cratering the instant they score.
 
+        elapsed = team_progress[team] if actual > 0 else 0.0
         remaining = max(pregame_projection - actual, 0) * (1 - elapsed)
         contribution = actual + remaining
 
-    where `elapsed` (0.0-1.0) comes from common.team_game_progress, which
-    reads ESPN's public scoreboard for that player's team's game clock.
+    where raw `elapsed` (0.0-1.0) comes from common.team_game_progress,
+    which reads ESPN's public scoreboard for that player's team's game
+    clock — but it only ever applies once the player has actually recorded
+    a point. A player sitting at 0 actual keeps their full, undecayed
+    pre-game projection no matter how much wall-clock time has passed —
+    "hasn't scored yet" is not evidence their opportunity is used up; it's
+    just as likely their own game hasn't gotten to them yet. Without this
+    gate, a quiet player's number would visibly crater over time for no
+    reason connected to anything that actually happened in their game.
+
+    FIXED 2026-09-10 (again): the first version of this decay applied
+    `elapsed` to every starter unconditionally, including ones sitting at
+    0 actual points. In production this showed up as EVERY roster's
+    projected total sliding downward together, scorers and non-scorers
+    alike, any time enough wall-clock time passed — the exact same
+    complaint ("projections cratering for all teams") the kickoff-cliff
+    bug produced two fixes ago, just reintroduced through a different
+    mechanism (time instead of any-stat-at-all).
 
     FIXED 2026-09-10: replaced the previous max(actual, pregame_projection)
     approximation. That version kept a player pinned at their full
@@ -61,13 +78,20 @@ def compute_projected_total(starters, players_points, projections_by_player, sco
         stats = projections_by_player.get(pid)
         pregame_projection = common.score_stats(stats, scoring) if stats else 0.0
 
-        # A team defense/special-teams slot is keyed by the team's own
-        # abbreviation (e.g. "SEA") rather than a normal player id.
-        team = players_team.get(pid, pid)
-        elapsed = team_progress.get(team)
-        if elapsed is None:
+        # Only decay once this player has actually put a point on the
+        # board — otherwise there's nothing connecting the clock to them
+        # specifically, and we'd just be cratering a quiet player's number
+        # for no in-game reason.
+        if pts > 0.0:
+            # A team defense/special-teams slot is keyed by the team's own
+            # abbreviation (e.g. "SEA") rather than a normal player id.
+            team = players_team.get(pid, pid)
+            elapsed = team_progress.get(team)
+            if elapsed is None:
+                elapsed = 0.0
+            elapsed = max(0.0, min(1.0, elapsed))
+        else:
             elapsed = 0.0
-        elapsed = max(0.0, min(1.0, elapsed))
 
         remaining = max(pregame_projection - pts, 0.0) * (1.0 - elapsed)
         projected_total += pts + remaining

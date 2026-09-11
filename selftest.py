@@ -145,6 +145,73 @@ def test_scoring_fallback():
     shutil.rmtree(sandbox)
 
 
+def test_negative_actual_decay():
+    """
+    Regression test for the negative-actual gate bug fixed 2026-09-11:
+    compute_projected_total used to gate decay on `actual > 0`, which
+    treated a team DEF/ST slot with a NEGATIVE actual (this league's
+    `pts_allow` penalty) as if it hadn't played yet, pinning it at its
+    full pregame projection even after its game went final. Confirmed in
+    production Week 1 data (LAR@SF): Team Mehta's Rams DEF had actual
+    -2.9 with the game fully over, but projected still showed the full
+    +4.78 pregame projection, inflating the roster's total by ~7.7 points.
+
+    A player/team with a nonzero actual (whether positive OR negative)
+    must decay toward that actual as their game progresses, exactly like
+    a positive-scoring player would.
+    """
+    sandbox = tempfile.mkdtemp(prefix="scoreboard-selftest-negative-")
+    data_dir = os.path.join(sandbox, "data")
+    os.makedirs(data_dir)
+
+    fake_state = {"season": "2026", "week": 1, "display_week": 1, "season_type": "regular"}
+    # def1's team (DEF) gave up enough points that its actual is negative,
+    # even though its game is fully over (elapsed=1.0). def2's team is a
+    # genuinely scoreless-so-far player whose game also hasn't finished.
+    fake_matchups = [
+        {"roster_id": 1, "points": -2.9, "starters": ["def1"], "players_points": {"def1": -2.9}},
+    ]
+    # pregame projection is a normal POSITIVE 4.8 (3.0 pts allowed * -0.2,
+    # plus a projected sack worth 1.0 each) -- the real final actual (-2.9)
+    # came in worse than projected, which is exactly the case the old
+    # `actual > 0` gate got wrong: it fell back to elapsed=0 and left the
+    # roster pinned at the full +4.8 instead of decaying to the real -2.9.
+    fake_projections = {
+        "def1": {"pts_allow": 3.0, "sack": 5.4},  # 3.0*-0.2 + 5.4*1.0 = 4.8
+    }
+    fake_league = {"scoring_settings": {"pts_allow": -0.2, "sack": 1.0}}
+    fake_player_teams = {"def1": "LAR"}
+
+    common.get_state = lambda: fake_state
+    common.get_league = lambda league_id: fake_league
+    common.get_matchups = lambda league_id, week: fake_matchups
+    common.get_projections = lambda season, week, season_type="regular": fake_projections
+    common.load_player_teams = lambda: fake_player_teams
+    common.team_game_progress = lambda season, week, season_type="regular": {"LAR": 1.0}  # game is final
+    common.now_iso = lambda: "2026-09-11T03:35:00Z"
+    common.DATA_DIR = data_dir
+    common.PLAYERS_CACHE = os.path.join(data_dir, "players_cache.json")
+    os.environ["LEAGUE_ID"] = TEST_LEAGUE
+
+    import poll
+    poll.LEAGUE_ID = TEST_LEAGUE
+    poll.main()
+
+    snaps = common.load_snapshots(1)
+    assert len(snaps) == 1, f"expected 1 snapshot, got {len(snaps)}"
+    r1 = snaps[0]["rosters"]["1"]
+    # Game is final (elapsed=1.0) -> projected must equal the real negative
+    # actual, NOT the full +4.8 pregame projection the old `actual > 0`
+    # gate would have produced.
+    assert r1["actual"] == -2.9, r1
+    assert r1["projected"] == -2.9, r1
+
+    print("negative-actual (leaky DEF) decay: PASS")
+    print("  final snapshot:", r1)
+
+    shutil.rmtree(sandbox)
+
+
 def main():
     # Run entirely inside a throwaway temp directory — this must NEVER touch
     # the real data/ and docs/ folders in a cloned repo, since those hold
@@ -217,6 +284,7 @@ def main():
     shutil.rmtree(sandbox)
 
     test_scoring_fallback()
+    test_negative_actual_decay()
 
     print("\nALL SELFTESTS PASSED (ran entirely in a throwaway temp dir — your real data/ and docs/ were untouched)")
 

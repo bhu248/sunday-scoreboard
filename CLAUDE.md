@@ -55,7 +55,7 @@ auth anywhere in this project — keep it that way.
 
 ## The scoring model — read this before touching `compute_projected_total`
 
-Three different bugs have been found and fixed here, each one a plausible-
+Four different bugs have been found and fixed here, each one a plausible-
 looking mistake:
 
 1. **The kickoff-cliff bug (original).** A player contributed their full
@@ -72,11 +72,12 @@ looking mistake:
    uniformly — including rosters whose players had recorded zero actual
    points. Result: scoreless teams' projections cratered too, just because
    time had passed, with no in-game justification. **Fix:** decay must be
-   gated on `actual > 0` — see the gate in `compute_projected_total` (the
-   `if pts > 0.0: ... else: elapsed = 0.0` block). A player who hasn't
-   scored yet keeps their full, undecayed projection no matter how much
-   wall-clock time passes; "hasn't scored" isn't evidence their opportunity
-   is used up, it's just as likely their game hasn't gotten to them yet.
+   gated on the player having a real, nonzero actual — see the gate in
+   `compute_projected_total` (the `if pts != 0.0: ... else: elapsed = 0.0`
+   block). A player who hasn't scored yet keeps their full, undecayed
+   projection no matter how much wall-clock time passes; "hasn't scored"
+   isn't evidence their opportunity is used up, it's just as likely their
+   game hasn't gotten to them yet.
 
 3. **The two-formulas-in-one-timeline bug.** The retroactive backfill from
    bug #2 used a fabricated wall-clock timer; live polls use a DIFFERENT
@@ -95,6 +96,33 @@ looking mistake:
    `https://api.sleeper.app/projections/nfl/player/<id>?season=...&week=...`
    — the bulk `/v1/projections/nfl/...` endpoint is too large for reliable
    single-key lookups by an LLM; the per-player endpoint is small and exact).
+
+4. **The negative-actual gate bug (2026-09-11).** Bug #2's fix gated decay
+   on `actual > 0`, which is wrong: a team DEF/ST slot can have a
+   NEGATIVE actual (this league's `pts_allow` is a per-point penalty, so a
+   defense that gets torched nets negative) even once its game is
+   completely over. `> 0` treated that exactly like "hasn't played yet,"
+   pinning a finished, leaky defense at its full pregame projection
+   instead of its real (negative) final score. Confirmed against
+   production Week 1 data: Team Mehta's Rams DEF had actual -2.9 with the
+   SF@LAR game already `STATUS_FINAL`, but projected still showed the
+   full +4.78 pregame number — a user-reported ~10-point gap against
+   Sleeper's own displayed total (93.10 vs. our 103.53) that led straight
+   to this. **Fix:** gate on `actual != 0` instead — see
+   `compute_projected_total`'s `if pts != 0.0:` block, and the matching
+   fix in `common.estimate_scoring_fallback_progress`'s `fold_in()` (was
+   `if not pts or pts <= 0.0: continue`, now `if pts is None or pts ==
+   0.0: continue`, for the same reason: a negative first stat is just as
+   much proof of kickoff as a positive one). Regression test:
+   `test_negative_actual_decay()` in `selftest.py`. Two historical rows in
+   `data/week1.jsonl` (roster 1's SEA DEF at one frame, roster 12's LAR
+   DEF at two frames) had already been written with the buggy formula and
+   were retroactively recomputed by hand to match what the fixed live
+   poller would have produced at those timestamps — same "reconstruct
+   history with the SAME formula, never a different one" principle as bug
+   #3. If you ever need to do this again: check `players_points` for ANY
+   negative value across `data/week<N>.jsonl` — `pts < 0.0`, not
+   `<= 0.0` — since that's the only condition the old gate got wrong.
 
 ## ESPN dependency — currently dormant, not broken
 

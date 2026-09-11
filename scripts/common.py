@@ -202,9 +202,11 @@ def estimate_scoring_fallback_progress(espn_progress, matchups, players_team, hi
     reporting live progress for (frac <= 0, i.e. missing or STATUS_
     SCHEDULED), find the earliest snapshot -- in this week's full history,
     plus the in-progress poll that hasn't been saved yet -- where any of
-    that team's players had actual points > 0, and treat that moment as a
-    proxy for kickoff: elapsed = (now - that moment) / FALLBACK_GAME_
-    DURATION_SEC.
+    that team's players had a NONZERO actual (positive or negative -- a
+    DEF/ST slot's `pts_allow` penalty can be negative from its very first
+    scoring play, and that's just as much evidence of kickoff as a
+    positive stat), and treat that moment as a proxy for kickoff:
+    elapsed = (now - that moment) / FALLBACK_GAME_DURATION_SEC.
 
     ESPN's real clock is always trusted the moment it actually reports one
     (frac > 0) for a team -- this estimate only ever fills in for teams
@@ -219,7 +221,11 @@ def estimate_scoring_fallback_progress(espn_progress, matchups, players_team, hi
 
     def fold_in(players_points, ts):
         for pid, pts in (players_points or {}).items():
-            if not pts or pts <= 0.0:
+            # `!= 0.0`, not `<= 0.0` / `not pts`: a team DEF/ST slot can
+            # have a genuinely negative actual (e.g. a pts_allow penalty)
+            # from its very first scoring play, and that's just as much
+            # proof the game has started as a positive stat would be.
+            if pts is None or pts == 0.0:
                 continue
             team = players_team.get(pid, pid)
             if team not in first_score_ts or ts < first_score_ts[team]:

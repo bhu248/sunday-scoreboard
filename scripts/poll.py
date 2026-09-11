@@ -25,7 +25,7 @@ def compute_projected_total(starters, players_points, projections_by_player, sco
     their actual total once their game ends, instead of staying pinned at
     a ceiling or cratering the instant they score.
 
-        elapsed = team_progress[team] if actual > 0 else 0.0
+        elapsed = team_progress[team] if actual != 0 else 0.0
         remaining = max(pregame_projection - actual, 0) * (1 - elapsed)
         contribution = actual + remaining
 
@@ -34,12 +34,24 @@ def compute_projected_total(starters, players_points, projections_by_player, sco
     with common.estimate_scoring_fallback_progress for any team ESPN is
     still reporting as not-yet-started despite its players already posting
     real stats — see that function's docstring. Either way, `elapsed` only
-    ever applies once the player has actually recorded a point. A player sitting at 0 actual keeps their full, undecayed
-    pre-game projection no matter how much wall-clock time has passed —
-    "hasn't scored yet" is not evidence their opportunity is used up; it's
-    just as likely their own game hasn't gotten to them yet. Without this
-    gate, a quiet player's number would visibly crater over time for no
-    reason connected to anything that actually happened in their game.
+    ever applies once the player has actually recorded a real stat (any
+    NONZERO actual, positive or negative). A player sitting at exactly 0
+    actual keeps their full, undecayed pre-game projection no matter how
+    much wall-clock time has passed — "hasn't scored yet" is not evidence
+    their opportunity is used up; it's just as likely their own game
+    hasn't gotten to them yet. Without this gate, a quiet player's number
+    would visibly crater over time for no reason connected to anything
+    that actually happened in their game.
+
+    FIXED 2026-09-11: the gate used to be `actual > 0`, not `actual != 0`.
+    A team DEF/ST slot can legitimately have NEGATIVE actual points (this
+    league's `pts_allow` is a per-point penalty, so a defense that gets
+    torched nets negative) even once its game is completely over. `> 0`
+    treated that exactly like "hasn't played yet," pinning a finished,
+    leaky defense at its full pregame projection instead of its real
+    (negative) final score — confirmed in production Week 1 data, where a
+    roster's projected total sat ~7-8 points too high after its DEF's game
+    went final with a negative actual score.
 
     FIXED 2026-09-10 (again): the first version of this decay applied
     `elapsed` to every starter unconditionally, including ones sitting at
@@ -80,11 +92,16 @@ def compute_projected_total(starters, players_points, projections_by_player, sco
         stats = projections_by_player.get(pid)
         pregame_projection = common.score_stats(stats, scoring) if stats else 0.0
 
-        # Only decay once this player has actually put a point on the
-        # board — otherwise there's nothing connecting the clock to them
+        # Only decay once this player has actually recorded a real stat —
+        # otherwise there's nothing connecting the clock to them
         # specifically, and we'd just be cratering a quiet player's number
-        # for no in-game reason.
-        if pts > 0.0:
+        # for no in-game reason. This must be `!= 0.0`, not `> 0.0`: a
+        # team DEF/ST slot can legitimately have NEGATIVE actual points
+        # (e.g. this league's `pts_allow` penalty) despite its game being
+        # fully over, and `> 0.0` was treating that exactly like "hasn't
+        # played yet" — pinning a finished, leaky defense at its full
+        # pregame projection instead of its real (negative) final score.
+        if pts != 0.0:
             # A team defense/special-teams slot is keyed by the team's own
             # abbreviation (e.g. "SEA") rather than a normal player id.
             team = players_team.get(pid, pid)

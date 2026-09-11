@@ -103,6 +103,7 @@ def render_week(week):
     final_teams = frames[-1]["teams"]
     ranked_final = sorted(final_teams, key=lambda t: t["actual"], reverse=True)
     week_winning = None
+    winning_key = None
     if len(ranked_final) >= 2:
         top_id = ranked_final[0]["id"]
         second_id = ranked_final[1]["id"]
@@ -117,7 +118,22 @@ def render_week(week):
                     "team": names.get(top_id, top_id),
                     "runnerUp": names.get(second_id, second_id),
                 }
+                winning_key = (idx, top_id)
                 break
+
+    # Tag each frame's flashes so the per-bar popup (see the JS `race-flash`
+    # rendering) can prefix a flash that's also one of the week's 5 biggest
+    # plays, or the specific flash in the week-winning roster's winning
+    # frame — same classification already used for the scrubber markers
+    # above, just surfaced on the bar popup too.
+    big_play_keys = {(f["frame"], f["id"], f["pid"]) for f in all_flashes[:5]}
+    for idx, fr in enumerate(frames):
+        for fl in fr["flashes"]:
+            key = (idx, fl["id"], fl["pid"])
+            if key in big_play_keys:
+                fl["kind"] = "big"
+            elif winning_key and (idx, fl["id"]) == winning_key:
+                fl["kind"] = "winning"
 
     payload = {
         "week": week,
@@ -138,7 +154,7 @@ def render_week(week):
 
     os.makedirs(DOCS_DIR, exist_ok=True)
     out_path = os.path.join(DOCS_DIR, f"week{week}.html")
-    with open(out_path, "w") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"Rendered {out_path} from {len(snapshots)} snapshots.")
     return out_path
@@ -155,7 +171,7 @@ def render_index():
 
     items = "\n".join(f'<li><a href="week{w}.html">Week {w}</a></li>' for w in weeks) or "<li>No weeks played yet.</li>"
     html = INDEX_TEMPLATE.replace("__ITEMS__", items)
-    with open(os.path.join(DOCS_DIR, "index.html"), "w") as f:
+    with open(os.path.join(DOCS_DIR, "index.html"), "w", encoding="utf-8") as f:
         f.write(html)
 
 
@@ -439,7 +455,8 @@ TEMPLATE = r"""<!doctype html>
       var fl = f.flashes.find(function(x){ return x.id === r.id; });
       if (fl){
         var label = DATA.playerLabels[fl.pid] || fl.pid;
-        r.flash.textContent = "+" + fl.delta.toFixed(1) + " · " + label;
+        var prefix = fl.kind === "big" ? "Big Play: " : (fl.kind === "winning" ? "Week-Winning Play: " : "");
+        r.flash.textContent = prefix + "+" + fl.delta.toFixed(1) + " · " + label;
         r.flash.classList.add("show");
       } else {
         r.flash.classList.remove("show");

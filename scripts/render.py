@@ -179,7 +179,7 @@ TEMPLATE = r"""<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Week __WEEK__ — Sunday Scoreboard</title>
+<title>Week __WEEK__ — Race for Weekly Top Scorer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -263,7 +263,7 @@ TEMPLATE = r"""<!doctype html>
 <body>
 <div class="wrap">
   <div class="eyebrow">Week __WEEK__ &middot; <a href="index.html">all weeks</a></div>
-  <h1 class="display">Sunday Scoreboard</h1>
+  <h1 class="display">Race for Weekly Top Scorer</h1>
   <div class="race-card">
     <div class="race-head">
       <span class="mono" id="clockLabel" style="font-size:0.9rem;font-weight:600;"></span>
@@ -288,7 +288,7 @@ TEMPLATE = r"""<!doctype html>
     </div>
   </div>
   <p class="meta">Teams are ranked by live-projected final (the pale bar), not actual points banked so far — a team with a big head start from players already done can still sit below one with more real upside left on the field. Rebuilt automatically from Sleeper API snapshots polled every few minutes during game windows. Opens showing the latest snapshot — drag the scrubber back to replay how the day got there. Reload for the newest data; this page doesn't auto-refresh itself.</p>
-  <footer>Sunday Scoreboard &middot; league <span class="mono">__LEAGUE_ID__</span></footer>
+  <footer>Race for Weekly Top Scorer &middot; league <span class="mono">__LEAGUE_ID__</span></footer>
 </div>
 <script>
 (function(){
@@ -561,7 +561,7 @@ INDEX_TEMPLATE = r"""<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Sunday Scoreboard</title>
+<title>Race for Weekly Top Scorer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
   body{ font-family: system-ui, sans-serif; background:#f6f5f0; color:#17181a; max-width:640px; margin:3rem auto; padding:0 1.25rem; }
@@ -571,7 +571,7 @@ INDEX_TEMPLATE = r"""<!doctype html>
 </style>
 </head>
 <body>
-  <h1>Sunday Scoreboard</h1>
+  <h1>Race for Weekly Top Scorer</h1>
   <ul>
 __ITEMS__
   </ul>

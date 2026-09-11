@@ -165,6 +165,25 @@ moment ESPN's status finally catches up and takes back over. See
 
 ## Other known behaviors (not bugs)
 
+- **The first ~90 minutes of Week 1's data (2026-09-09T23:38:43Z through
+  2026-09-10T01:49:45Z) predate the ESPN-dormant fallback mechanism
+  existing at all** (it was added at commit `62440f0`, after these frames
+  had already been polled and stored). Live polls during that window had
+  no way to decay a scoring player's projection — the code before that
+  commit had nothing but `team_game_progress()`, which returns nothing
+  useful for a game ESPN keeps reporting as `STATUS_SCHEDULED` — so the
+  six rosters with a player in the NE@SEA opener sat frozen at their full
+  pregame total for that entire window despite real actual points already
+  climbing, then jumped straight to a properly-decaying number the moment
+  the next poll ran with the newer code. Fixed 2026-09-11 by retroactively
+  recomputing those specific (roster, player, frame) rows — 58 in total —
+  using `common.estimate_scoring_fallback_progress` exactly as production
+  would have if it had existed from kickoff, so the time-lapse now decays
+  smoothly from the very start instead of freezing then snapping. If you
+  ever add a new decay mechanism, remember historical rows polled before
+  its commit landed will need the same treatment — check for any
+  actual-is-moving-but-projected-isn't frame range, not just the specific
+  symptom you were chasing.
 - **Sleeper's pregame projections can drift slightly over time**, even
   before a player takes the field — a player's own projection number was
   observed shifting by a couple of points between polls taken hours apart,

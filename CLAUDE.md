@@ -32,14 +32,21 @@ auth anywhere in this project — keep it that way.
   player-id labels like `"WR1 — deep TD catch"`. Dummy-data-only; if you ever
   see a garbled name like that in real output, it means dummy data leaked in,
   not a labeling bug.
-- `.github/workflows/scoreboard.yml` — the cron schedule. Every line fires at
-  minute `2-57/5`, not `*/5` — GitHub Actions scheduled runs get delayed
-  worst right at round 5-minute marks (documented GitHub behavior, confirmed
-  in production during this project's Week 1 opener). The 2026-specific
-  Friday/Saturday date block (Black Friday, Christmas, Week 15-18 Saturdays)
-  has no year field in cron, so it will fire again on the same calendar
-  dates in 2027 with the wrong games — review/remove that block before the
-  2027 season.
+- `.github/workflows/scoreboard.yml` — now `workflow_dispatch`-only. It used
+  to also have a `schedule:` cron trigger; that was removed 2026-09-10 (see
+  "Scheduling moved off GitHub, onto the local machine" below) because
+  GitHub's scheduler was unreliable in production. The old cron windows are
+  kept as comments in the YAML for reference only — they are not live.
+- `scripts/local_scheduler.py` — the actual timer now. Runs every 5 minutes
+  via a Windows Task Scheduler job (`SundayScoreboardLocalTrigger`) on
+  bhu24's machine, checks `WEEKLY_WINDOWS`/`DATE_WINDOWS` (the local
+  equivalent of the old cron list) against current UTC time, and calls
+  `gh workflow run scoreboard.yml --repo bhu248/sunday-scoreboard` when
+  inside a window. No-op outside game windows. Logs every decision
+  (dispatched or skipped) to `local_scheduler.log` in the repo root
+  (gitignored). The 2026-specific Friday/Saturday `DATE_WINDOWS` have no
+  year field, so — same caveat as the old cron — review/remove that block
+  before the 2027 season.
 - `selftest.py` (repo root) — **not committed to the repo**, dev-only. Mocks
   every Sleeper call and runs `poll.py` + `render.py` against fake data,
   asserting exact expected numbers. Run this before shipping any change to
@@ -137,16 +144,25 @@ moment ESPN's status finally catches up and takes back over. See
   and expected; don't assume a small shift on a scoreless player's number is
   a sign of a decay bug resurfacing — check whether it's actually the
   player's source projection that moved.
-- **Scheduled (`schedule:`) GitHub Actions triggers have not been confirmed
-  to fire reliably.** Manual `workflow_dispatch` runs work fine; scheduled
-  runs were observed going missing for 15-20+ minutes or more at a time
-  during the Week 1 opener, with nothing diagnosable from outside GitHub
-  (workflow isn't disabled, default branch is correct, no GitHub status
-  incident, YAML/cron is valid). This was never root-caused. Claude Code has
-  something the Cowork session didn't: real `gh` CLI access to this repo's
-  Actions run history (`gh run list`, `gh api .../actions/workflows`) — worth
-  using that to actually dig into run timestamps vs. cron schedule if this
-  keeps happening.
+- **Scheduling moved off GitHub, onto the local machine (2026-09-10).**
+  Scheduled (`schedule:`) GitHub Actions triggers were never confirmed to
+  fire reliably — manual `workflow_dispatch` runs always worked, but
+  scheduled runs went missing for 15-20+ minutes or more at a time during
+  the Week 1 opener (confirmed again right at the start of the Thursday
+  Night Football window: no scheduled run fired for 19+ hours across a gap
+  that should have had none, since the previous window had already closed
+  cleanly), with nothing diagnosable from outside GitHub (workflow wasn't
+  disabled, default branch was correct, no GitHub status incident, YAML/cron
+  was valid). Root cause was never found and, per bhu24, isn't worth chasing
+  further — instead, the `schedule:` trigger was removed entirely and
+  replaced with `scripts/local_scheduler.py`, driven by a Windows Task
+  Scheduler job on bhu24's own machine, which calls `gh workflow run`
+  (`workflow_dispatch`) directly every 5 minutes during game windows. This
+  has an obvious tradeoff worth surfacing if it comes up: the workflow now
+  only fires while that machine is on, awake, and logged in — it's no
+  longer a GitHub-side schedule. If snapshots are missing during a game,
+  check the scheduled task's state/log first (see README "How it runs")
+  before assuming it's a Sleeper/ESPN data issue.
 - **`docs/week<N>.html` only reflects what's in `data/week<N>.jsonl` as of
   the last render.** After any direct edit to the `.jsonl` history, you must
   run `python scripts/render.py` (or trigger the workflow) to regenerate the

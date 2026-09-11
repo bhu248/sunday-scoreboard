@@ -1,29 +1,37 @@
 name: Sunday Scoreboard
 
-# Polls the Sleeper API every 5 minutes during NFL game windows and
-# republishes docs/week<N>.html (served by GitHub Pages) with the latest
-# scores. No secrets required — Sleeper's API is public and read-only, and
-# this workflow's own GITHUB_TOKEN is enough to commit the results back.
+# Polls the Sleeper API during NFL game windows and republishes
+# docs/week<N>.html (served by GitHub Pages) with the latest scores. No
+# secrets required — Sleeper's API is public and read-only, and this
+# workflow's own GITHUB_TOKEN is enough to commit the results back.
 #
-# Cron is UTC and written to cover both EDT and EST (the season crosses the
-# November clock change), which is why the windows run a little wider than
-# strictly necessary at the edges. Covers Sunday day+night, Monday night,
-# Wednesday night, and Thursday night — 2026's Week 1 opener (Sea @ NE,
-# Wed Sept 9) moved the usual Thursday opener to a Wednesday, and the
-# Wednesday line is left in place afterward in case of any other
-# schedule-shuffle Wednesday game later in the season.
+# There is deliberately no `schedule:` trigger here anymore. GitHub's own
+# cron scheduler was observed missing runs by 15-20+ minutes or more during
+# the Week 1 opener, with nothing diagnosable from outside GitHub (workflow
+# wasn't disabled, no GitHub status incident, cron was valid) — see
+# CLAUDE.md. Scheduling now happens on the local machine instead:
+# scripts/local_scheduler.py runs every 5 minutes via Windows Task
+# Scheduler and calls `gh workflow run` (i.e. workflow_dispatch, below)
+# whenever it's inside a game window. Its window logic is the local
+# equivalent of what used to be the cron list here; the windows below are
+# kept as comments purely for reference, not as a live schedule.
 #
-# The weekly lines above recur every season since they're just "day of
-# week" — but the block below is different: it targets SPECIFIC calendar
-# dates for the 2026 season's known Friday/Saturday games (which the
-# weekly lines don't cover at all). Standard cron has no "year" field, so
-# each of these WILL fire again on the same month/day next year even
-# though next season's actual game dates will be different — these are
-# only correct for the 2026 season and should be reviewed/removed before
-# the 2027 season starts. Each date gets two lines: one for its UTC day,
-# one for the small overflow into the next UTC day (games starting late
-# evening ET can run past midnight UTC), same pattern as the SNF/MNF lines
-# above. Source: 2026 NFL schedule as published, checked 2026-09-09. 
+#   Sunday day+night, Monday night, Wednesday night, and Thursday night —
+#   2026's Week 1 opener (Sea @ NE, Wed Sept 9) moved the usual Thursday
+#   opener to a Wednesday, kept recurring after in case of another
+#   schedule-shuffle Wednesday game.
+#   Sunday daytime + evening (main slate):     17-23 UTC Sunday
+#   Sunday Night Football (after midnight UTC): 0-4 UTC Monday
+#   Monday Night Football:                      0-4 UTC Tuesday
+#   Wednesday night game:                       0-4 UTC Thursday
+#   Thursday Night Football:                    0-4 UTC Friday
+#
+#   Plus 2026-season-specific Friday/Saturday dates (no year field in the
+#   local scheduler's DATE_WINDOWS either — review/remove before the 2027
+#   season): Black Friday (Nov 27-28), Christmas Day (Dec 25-26), Week 15
+#   Saturday (Dec 19-20), Week 16 Saturday (Dec 26-27), Week 17 Saturday
+#   (Jan 2-3), Week 18 Saturday (Jan 9-10, tentative). Source: 2026 NFL
+#   schedule as published, checked 2026-09-09.
 on:
   workflow_dispatch:
     inputs:
@@ -31,26 +39,6 @@ on:
         description: "Seed fake week-0 data (using your real team names) instead of polling live scores — safe to run anytime, for testing"
         type: boolean
         default: false
-  schedule:
-    - cron: "2-57/5 17-23 * * 0"  # Sunday daytime + evening (main slate)
-    - cron: "2-57/5 0-4 * * 1"    # Sunday Night Football, after midnight UTC
-    - cron: "2-57/5 0-4 * * 2"    # Monday Night Football
-    - cron: "2-57/5 0-4 * * 4"    # Wednesday night game (2026's Week 1 opener moved off Thursday — kept recurring in case of future Wednesday games)
-    - cron: "2-57/5 0-4 * * 5"    # Thursday Night Football
-
-    # --- 2026-season-specific Friday/Saturday dates (see note above) ---
-    - cron: "2-57/5 20-23 27 11 *" # Black Friday: Broncos @ Steelers, Fri Nov 27, 3:00pm ET
-    - cron: "2-57/5 0-1 28 11 *"   #   ...overflow past midnight UTC
-    - cron: "2-57/5 18-23 25 12 *" # Christmas Day tripleheader, Fri Dec 25 (1:00/4:30/8:15pm ET)
-    - cron: "2-57/5 0-4 26 12 *"   #   ...overflow past midnight UTC
-    - cron: "2-57/5 22-23 19 12 *" # Week 15 Saturday doubleheader, Sat Dec 19 (5:00/8:20pm ET)
-    - cron: "2-57/5 0-4 20 12 *"   #   ...overflow past midnight UTC
-    - cron: "2-57/5 21-23 26 12 *" # Week 16 Saturday doubleheader, Sat Dec 26 (4:30/8:00pm ET) — matchups TBD (flex), date/time confirmed
-    - cron: "2-57/5 0-4 27 12 *"   #   ...overflow past midnight UTC
-    - cron: "2-57/5 21-23 2 1 *"   # Week 17 Saturday doubleheader, Sat Jan 2 2027 (4:30/8:00pm ET) — matchups TBD (flex), date/time confirmed
-    - cron: "2-57/5 0-4 3 1 *"     #   ...overflow past midnight UTC
-    - cron: "2-57/5 18-23 9 1 *"   # Week 18 Saturday tripleheader, Sat Jan 9 2027 (tentative — NFL sets exact Week 18 date/times only after Week 17)
-    - cron: "2-57/5 0-4 10 1 *"    #   ...overflow past midnight UTC
 
 permissions:
   contents: write

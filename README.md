@@ -84,11 +84,28 @@ trusting it with a full Sunday and an actual prize on the line.
 
 ## How it runs
 
-`.github/workflows/scoreboard.yml` fires on a cron schedule covering
-Wednesday night, Thursday night, all day Sunday, and Monday night (see the
-comments in that file for the exact UTC windows — they're written a little
-wider than strictly necessary so the schedule doesn't need touching when
-clocks change in November). Each firing:
+`.github/workflows/scoreboard.yml` no longer has a `schedule:` trigger —
+GitHub's own cron scheduler was observed missing runs by 15-20+ minutes or
+more during the Week 1 opener, with nothing diagnosable from outside GitHub.
+Timing now lives on your local machine instead: `scripts/local_scheduler.py`
+runs every 5 minutes via a Windows Task Scheduler job named
+`SundayScoreboardLocalTrigger`, checks whether it's currently inside a game
+window (the same Sunday/Monday/Wednesday/Thursday-night + specific
+Friday/Saturday windows the old cron comments described — now living as
+`WEEKLY_WINDOWS`/`DATE_WINDOWS` in that script), and if so calls
+`gh workflow run scoreboard.yml` (a `workflow_dispatch`, the only trigger
+left in the YAML). **This means the workflow only fires while your machine
+is on, awake, and logged in during game windows** — it's not a
+GitHub-side schedule anymore. Check the task with:
+
+```
+Get-ScheduledTask -TaskName SundayScoreboardLocalTrigger
+```
+
+and see `local_scheduler.log` (gitignored, in the repo root) for a run-by-run
+record of when it dispatched vs. skipped.
+
+Each firing:
 
 1. `scripts/poll.py` — fetches this week's matchups + projections from
    Sleeper, scores everything through your league's own `scoring_settings`,
@@ -100,8 +117,7 @@ clocks change in November). Each firing:
    file within about a minute.
 
 Polling runs every 5 minutes. That's coarser than the 1–3 minutes mentioned
-in the original feasibility check — GitHub Actions doesn't reliably hit a
-tighter schedule than that in practice, and 5 minutes still reads as smooth,
+in the original feasibility check, but 5 minutes still reads as smooth,
 continuous motion once it's animated.
 
 ## Known limitations (carried over from the feasibility check)
@@ -128,7 +144,8 @@ scripts/common.py           shared Sleeper API + scoring helpers
 scripts/poll.py              one poll → one snapshot
 scripts/render.py            snapshots → the published HTML pages
 scripts/seed_dummy_data.py   fabricates a fake "week 0" for testing
-.github/workflows/scoreboard.yml   the schedule that runs the above
+scripts/local_scheduler.py   local timer that dispatches the workflow (see "How it runs")
+.github/workflows/scoreboard.yml   the workflow_dispatch job the above triggers
 selftest.py            offline sanity check, safe to run anytime
 data/                  one .jsonl file per week (created automatically)
 docs/                  the published pages (served by GitHub Pages)
